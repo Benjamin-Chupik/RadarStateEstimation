@@ -44,7 +44,7 @@ function radarMeasure(xs::Vector{Vector{Float64}}, radar::Radar)
             r: range
             rd: range velocity
     """
-    ys = []
+    ys = Vector{Vector{Float64}}()
 
     # Loop through every time
     for x in xs
@@ -59,5 +59,34 @@ function radarMeasure(xs::Vector{Vector{Float64}}, radar::Radar)
         push!(ys, [el, r, rd])
     end
 
-    return ys
+    return ys::Vector{Vector{Float64}}
+end
+
+function y2p(y::Vector{Float64}, radar::Radar)
+    """
+    Converts a y measurement vector to a x state vector
+    inputs:
+        y: [el, r, rd]
+    outputs
+        p: [x, y]
+    """
+
+    el = y[1]
+    r = y[2]
+    rd = y[3]
+
+
+    dP = [cos(el), sin(el)].*r
+
+    p = dP + radar.p
+
+    return p
+end
+
+function y2p(ys::Vector{Vector{Float64}}, radar::Radar)
+    ps = []
+    for y in ys
+        push!(ps, y2p(y, radar))
+    end
+    return ps
 end

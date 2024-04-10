@@ -45,3 +45,7 @@ end
 
 @show pList
 display(plot(pList[1], pList[2], pList[3], layout = (length(pList), 1))) #, title = "Measurement testing"))
+
+x_fromy = y2p(y_list, radar)
+x_fromy_mat = stack(x_fromy, dims=1)
+display(scatter(x_fromy_mat[:,1], x_fromy_mat[:,2], title = "Position from measurements"))
