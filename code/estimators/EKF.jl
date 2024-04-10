@@ -1,32 +1,66 @@
+using LinearAlgebra
 
-function EKF_step(xk, yk1, uk, Pk, Qk, Rk)
+include("../problemStruct.jl")
+include("../models/fixedWing.jl")
+# include("../models/radarMeasure.jl")
+
+
+function EKF_step!(x_list, P_list, uk, yk1, Qk, Rk, params)
     # n = length(xk)
+    # xk = x_list[end]
+    # Pk = P_list[end]
 
     ############### PREDICTION STEP ################
-    xk1min = f(xk, uk, dt) # nonlinear dynamics prediction
-    Atild = genA(xk1min) # linearized dynamics at timestep
-    Fk = I + dt*Atild 
+    xk = x_list[end]
+    Pk = P_list[end]
+    xk1min = simulate(xk, uk, params) # nonlinear dynamics prediction
+    
+    Atild = fixedWingLinDyn(xk, params) # linearized dynamics at timestep
+    Fk = I + params.dt*Atild 
 
     Pk1min = Fk*Pk*Fk' + Qk # update Pmin
 
-    yk1hat = h(xk1min)
-    Hk1 = genH(xk1min)
+    yk1hat = [1,1,1] #h(xk1min) #TODO
+    Hk1 = ones(3,4) #genH(xk1min) #TODO
     ek1 = yk1 .- yk1hat
+    
     Kk1 = Pk1min*Hk1'*inv(Hk1*Pk1min*Hk1'+ Rk)
 
     xk1plus = xk1min + Kk1*ek1
+    
     Pk1plus = (I-Kk1*Hk1)*Pk1min
-    return (xk1plus, Pk1plus)
+    
+    push!(x_list, xk1plus)
+    push!(P_list, Pk1plus)
 end
 
-# STILL NEED df, genA, 
-function genA(xk)
-    alpha = xk[3]
-    v = xk[4]
-    A = [0 0 -v*sin(alpha) cos(alpha)
-         0 0  v*cos(alpha) sin(alpha)
-         0 0 0 0
-         0 0 0 -2*v*Cd/rho]
-    return A
-end
+## setup
+Cd = 0.1
+dt = 0.5
+maxT = 10.0
+ρ = 1.0
+params = Params(dt, maxT, Cd, ρ)
 
+x0 = [0.0, 0.0, 0.0, 5.0]
+x_list = Vector{Vector{Float64}}()
+push!(x_list, x0)
+uk = [0.0, 0.0]
+
+bignum = 1000
+P_list = Vector{Matrix{Float64}}()
+P0 = ones(4, 4)*bignum
+push!(P_list, P0)
+
+Qk = ones(4, 4)
+Rk = [1.0 0 0
+      0 1.0 0
+      0 0 1.0]
+
+# EKF
+println(x_list)
+display(P_list)
+
+EKF_step!(x_list, P_list, uk, [2,2,2], Qk, Rk, params)
+
+println(x_list)
+display(P_list)

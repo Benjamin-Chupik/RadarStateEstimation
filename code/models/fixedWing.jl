@@ -34,6 +34,17 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
 
 end
 
+function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
+    α  = xk[3]
+    v = xk[4]
+    A = [0 0 -v*sin(α) cos(α)
+         0 0  v*cos(α) sin(α)
+         0 0 0 0
+         0 0 0 -2*v*Cd/params.ρ]
+    return A
+end
+
+
 
 function simulate(xk::Vector{Float64}, u::Vector{Float64}, params::Params)
     """
