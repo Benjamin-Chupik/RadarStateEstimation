@@ -1,24 +1,47 @@
 include("../problemStruct.jl")
 include("../models/fixedWing.jl")
-include("../models/radarMeasure.jl")
+include("../models/radarMeasurement.jl")
 
 
 
 # Dynamics
 Cd = 1.0
-prams = Params(.5, 10.0, Cd)
+params = Params(.5, 10.0, Cd)
 x0 = [0.0, 0.0, 0.0, 5.0]
-x_list = simulate(x0, prams)
+x_list = genTrajectory(x0, params)
 
 # Measurements
-#Radar([50,0], rNoise, rdNoise, azNoise, elNoise)
-#y_list = radarMeasure(x_list, radar::Radar)
+function rNoise()
+    return 0.0
+end
+function rdNoise()
+    return 0.0
+end
+function azNoise()
+    return 0.0
+end
+function elNoise()
+    return 0.0
+end
+radar = Radar([50.0,0.0], rNoise, rdNoise, azNoise, elNoise)
+y_list = radarMeasure(x_list, radar)
 
+xMat = stack(x_list, dims=1)
+yMat = stack(y_list, dims=1)
 
 using Plots
-p = plot(title = "Model testing")
-for x in x_list
-    scatter!([x[1]], [x[2]])
+# Dynamics
+p = plot(title = "Dynamics testing")
+scatter!(xMat[:,1], xMat[:,2])
+display(p)
+
+# Measuremetns
+ynames = ["elevation", "Range", "Range Velocity"]
+pList = []
+for i in 1:3
+    p_temp = scatter(params.ks, yMat[:,i], xlabel = "k", ylabel = ynames[i])
+    push!(pList, p_temp)
 end
 
-display(p)
+@show pList
+display(plot(pList[1], pList[2], pList[3], layout = (length(pList), 1))) #, title = "Measurement testing"))
