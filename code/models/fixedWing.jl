@@ -35,31 +35,30 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
 end
 
 
-function simulate!(x_list::Vector{Vector{Float64}}, u::Vector{Float64}, params::Params)
+function simulate(xk::Vector{Float64}, u::Vector{Float64}, params::Params)
     """
-    Updates the x_list to simulate the dynamics one k forward in time using numeric integration. 
+    Simulates the dynamics simulate the dynamics one k forward in time using numeric integration. 
     Inputs:
-        x_list: List of state vectors. Needs to be a list (not matrix) so you an push to it. Also needs at least one entry
+        xk: state vector.
         u: Vector of control inputs to inact for the full time step
         params: Problem parameters
     Outputs:
-        None, it updates x_list with a new state
+        xkp1: New x state at next time step
     """
 
     # Setup ODE
-    x0 = x_list[end]
     tspan = (0.0, params.dt) # dosent matter what time it starts on , just integrate for the dt time
-    prob = ODEProblem(fixedWingEOM, x0, tspan, [u[1], u[2], params.Cd])
+    prob = ODEProblem(fixedWingEOM, xk, tspan, [u[1], u[2], params.Cd])
 
     t, x = solve(prob, Tsit5())
 
-    push!(x_list, x[end]) # only record at the dt time
+    xkp1 = x[end] # only the last time step (if you dont do this it is a solution object that is weird)
 
-    return nothing
+    return xkp1
 end
 
 
-function simulate(x0::Vector{Float64}, params::Params)
+function genTrajectory(x0::Vector{Float64}, params::Params)
     """
     Updates the x_list to simulate the dynamics one k forward in time using numeric integration. 
     Inputs:
@@ -81,26 +80,9 @@ function simulate(x0::Vector{Float64}, params::Params)
         u = [0.0, 0.0]
 
         # Simulate one time step
-        simulate!(x_list, u, prams)
+        xkp1 = simulate(x_list[end], u, params)
+        push!(x_list, xkp1)
     end
 
     return x_list::Vector{Vector{Float64}}
-end
-
-
-if false
-    # TEstning
-    Cd = 1.0
-    prams = Params(.5, 10.0, Cd)
-    x0 = [0.0, 0.0, 0.0, 5.0]
-
-    x_list = simulate(x0, prams)
-
-    using Plots
-    p = plot()
-    for x in x_list
-        scatter!([x[1]], [x[2]])
-    end
-
-    display(p)
 end
