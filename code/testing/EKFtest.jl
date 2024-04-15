@@ -12,15 +12,11 @@ params = Params(dt, maxT, Cd, ρ)
 
 # init x0, u0
 x0 = [0.0, 0.0, 0.0, 5.0]
-x_list = Vector{Vector{Float64}}()
-push!(x_list, x0)
 uk = [0.0, 0.0]
 
 # init P
 bignum = 1000
-P_list = Vector{Matrix{Float64}}()
 P0 = ones(4, 4)*bignum
-push!(P_list, P0)
 
 # init Qk, Rk
 Qk = zeros(4, 4)
