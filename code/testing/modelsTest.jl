@@ -5,22 +5,25 @@ include("../models/radarMeasurement.jl")
 
 # Dynamics
 Cd = 1.0
-params = Params(.5, 10.0, Cd)
-x0 = [0.0, 0.0, 0.0, 5.0]
+params = Params(.5, 100.0, Cd, .2)
+x0 = [0.0, 50.0, 0.0, 5.0]
 x_list = genTrajectory(x0, params)
 
 # Measurements
 function rNoise()
-    return 0.0
+    return rand(Chisq(4))
 end
 function rdNoise()
-    return 0.0
+    #return 0.0
+    return rand(Normal(0,.2))
 end
 function azNoise()
-    return 0.0
+    #return 0.0
+    return rand(Normal(0.0, deg2rad(2)))
 end
 function elNoise()
-    return 0.0
+    #return 0.0
+    return rand(Normal(0.0, deg2rad(2)))
 end
 radar = Radar([50.0,0.0], rNoise, rdNoise, azNoise, elNoise)
 y_list = radarMeasure(x_list, radar)
@@ -47,4 +50,6 @@ display(plot(pList[1], pList[2], pList[3], layout = (length(pList), 1))) #, titl
 
 x_fromy = y2p(y_list, radar)
 x_fromy_mat = stack(x_fromy, dims=1)
-display(scatter(x_fromy_mat[:,1], x_fromy_mat[:,2], title = "Position from measurements"))
+p = plot(xMat[:,1], xMat[:,2], label = "Exact Position")
+scatter!(x_fromy_mat[:,1], x_fromy_mat[:,2], label = "Position from measurements")
+display(p)

@@ -1,5 +1,6 @@
 using DifferentialEquations
 # Infor on DIffiQ package: https://docs.sciml.ai/DiffEqDocs/stable/basics/overview/
+using Distributions
 
 include("../problemStruct.jl")
 #using. problemStruct
@@ -124,7 +125,7 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
     for k in params.ks
 
         # Generate the us TODO
-        u = [0.0, 0.0]
+        u = [rand(Normal(0, deg2rad(10))), rand(Normal(3, 1))] # [α, V]
 
         # Simulate one time step
         xkp1 = simulate(x_list[end], u, params)
