@@ -25,6 +25,7 @@ function EKF_step!(x_list, P_list, uk, yk1, Qk, Rk, params, radar)
     ############### PREDICTION STEP ################
     xk = x_list[end]
     Pk = P_list[end]
+    
     xk1min = simulate(xk, uk, params) # nonlinear dynamics prediction
     
     Atild = fixedWingLinDyn(xk, params) # linearized dynamics at timestep
@@ -47,7 +48,7 @@ function EKF_step!(x_list, P_list, uk, yk1, Qk, Rk, params, radar)
     push!(P_list, Pk1plus)
 end
 
-function bulk_EKF(x0, P0, U, Y, Qk, Rk, params, radar)
+function EKF_bulk(x0, P0, U, Y, Qk, Rk, params, radar)
     """
     Updates the x_list with xk+1 with an EKF prediction
     Inputs:
@@ -63,7 +64,7 @@ function bulk_EKF(x0, P0, U, Y, Qk, Rk, params, radar)
         x_list with all x
         P_list with all P
     """
-    @assert length(U) == length(Y)
+    # @assert length(U) == length(Y)
     K = length(U)
 
     # Initialize x_list
@@ -75,6 +76,7 @@ function bulk_EKF(x0, P0, U, Y, Qk, Rk, params, radar)
     push!(P_list, P0)
 
     for k in 1:K
+        println("k=$(k)")
         EKF_step!(x_list, P_list, U[k], Y[k+1], Qk, Rk, params, radar)
     end
 
