@@ -6,9 +6,15 @@ include("../problemStruct.jl")
 include("../models/radarMeasurement.jl")
 #using. problemStruct
 
+include("../models/radarMeasurement.jl")
+
 function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     # x_vec: [x, y, α, v]
     # p_vec: Parameters vector: [uα, uv, Cd]
+
+    if x_vec[4]<0
+        x_vec[4]=0
+    end
 
     # Unpacking
     x = x_vec[1]

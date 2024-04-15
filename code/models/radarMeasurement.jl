@@ -12,6 +12,9 @@
 using LinearAlgebra
 using Printf
 
+#--------------------------------------------  
+# Data Structures
+#--------------------------------------------  
 
 struct Radar
     """
@@ -27,12 +30,15 @@ struct Radar
     #Things we can add: max, range, min, range, FOV bounds, ...
 
     # Noises
-    rNoise::Function # returns a sample for the range noise 
-    rdNoise::Function # returns a sample for the range velocity noise
-    azNoise::Function # returns a sample for the range noise
-    elNoise::Function # returns a sample for the range noise
+    rNoise::UnivariateDistribution # returns a sample for the range noise 
+    rdNoise::UnivariateDistribution # returns a sample for the range velocity noise
+    elNoise::UnivariateDistribution # returns a sample for the range noise
 end
 
+
+#--------------------------------------------  
+# Measurement Generation
+#--------------------------------------------  
 
 function radarMeasure(x::Vector{Float64}, radar::Radar)
     """
@@ -50,12 +56,12 @@ function radarMeasure(x::Vector{Float64}, radar::Radar)
     dp = x[1:2] - radar.p # get the delta position [x,y,z]
     α = x[3]
     v = x[4]
-    r = norm(dp) + radar.rNoise()
+    r = norm(dp) + rand(radar.rNoise)
     v_vector = [cos(α), sin(α)].*v
-    rd = dot(dp, v_vector)/norm(dp) + radar.rdNoise()# Get the component of the velocity pointing in the direction of the radar (same direction as dp) 
+    rd = dot(dp, v_vector)/norm(dp) + rand(radar.rdNoise)# Get the component of the velocity pointing in the direction of the radar (same direction as dp) 
     #rd_math = v*cos(α - atan(x[2]-radar.p[2], x[1]-radar.p[1]))
     #@printf("%f\n\tVector: %f\n\tTrig: %f\n", rd-rd_math, rd, rd_math )
-    el = atan(dp[2], dp[1]) + radar.elNoise()
+    el = atan(dp[2], dp[1]) + rand(radar.elNoise)
 
     y = [el, r, rd]
 
@@ -86,6 +92,34 @@ function radarMeasure(xs::Vector{Vector{Float64}}, radar::Radar)
 
     return ys::Vector{Vector{Float64}}
 end
+
+#--------------------------------------------  
+# likelihood function
+#--------------------------------------------  
+
+function likelihood(y::Vector{Float64}, x::Vector{Float64}, radar::Radar)
+    """
+    A general likelihood function for the radar model.
+    Becuase the measurements are independent:
+    P(y|x) = P(y1|x)*P(y2|x)*P(y3|x)
+    The P(y1|x) is from the noise model associated with the radar input
+    Inputs:
+        y: the measurement vector [el, r, rd]
+        x: the state vector [x, y, α, v]
+    Outputs:
+        likelihood: The P(y|x) 
+    """
+
+    Display(radar.rNoise)
+    
+
+
+end
+
+
+#--------------------------------------------  
+# Usefull Helper Functions
+#--------------------------------------------  
 
 function y2p(y::Vector{Float64}, radar::Radar)
     """
