@@ -120,17 +120,21 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
     # Crete the output list that is updated by simulate!
     x_list = Vector{Vector{Float64}}()
     push!(x_list, x0)
+
+    u_list = Vector{Vector{Float64}}()
+
     
     # Go thorugh all the descrete times
     for k in params.ks
 
         # Generate the us TODO
         u = [rand(Normal(0, deg2rad(10))), rand(Normal(3, 1))] # [α, V]
+        push!(u_list, u)
 
         # Simulate one time step
         xkp1 = simulate(x_list[end], u, params)
         push!(x_list, xkp1)
     end
 
-    return x_list::Vector{Vector{Float64}}
+    return x_list::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}
 end

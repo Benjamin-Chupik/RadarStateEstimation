@@ -7,7 +7,7 @@ include("../models/radarMeasurement.jl")
 Cd = 1.0
 params = Params(.5, 100.0, Cd, .2)
 x0 = [0.0, 50.0, 0.0, 5.0]
-x_list = genTrajectory(x0, params)
+x_list, u_list = genTrajectory(x0, params)
 
 # Measurements
 function rNoise()
