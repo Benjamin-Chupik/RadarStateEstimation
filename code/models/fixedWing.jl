@@ -44,7 +44,43 @@ function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
     return A
 end
 
+function fixedWingMeasDer(xk::Vector{Float64}, radar::Radar)
 
+    xr, zr = radar.p
+
+    x = xk[1]
+    z = xk[2]
+    α = xk[3]
+    v = xk[4]
+    e = atan(z-zr, x-xr)
+
+
+    drdx = (x-xr)/sqrt((x-xr)^2+(z-zr)^2)
+    drdz = (z-zr)/sqrt((x-xr)^2+(z-zr)^2)
+
+    dedx = -(z-zr)/((x-xr)^2+(z-zr)^2)
+    dedz = (x-xr)/((x-xr)^2+(z-zr)^2)
+
+    drddv = cos(α-e)
+    drddα = -v*sin(α-e)
+    drddx = -v*sin(α-e)*-dedx
+    drddz = -v*sin(α-e)*-dedz
+
+    H = zeros(3,4)
+
+    H[1,1] = drdx
+    H[1,2] = drdz
+
+    H[2,1] = drddx
+    H[2,2] = drddz
+    H[2,3] = drddα
+    H[2,4] = drddv
+
+    H[3,1] = dedx
+    H[3,2] = dedz
+
+    return H
+end
 
 function simulate(xk::Vector{Float64}, u::Vector{Float64}, params::Params)
     """

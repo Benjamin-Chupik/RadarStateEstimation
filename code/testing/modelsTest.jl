@@ -3,7 +3,6 @@ include("../models/fixedWing.jl")
 include("../models/radarMeasurement.jl")
 
 
-
 # Dynamics
 Cd = 1.0
 params = Params(.5, 10.0, Cd)
