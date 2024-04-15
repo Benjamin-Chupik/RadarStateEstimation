@@ -5,6 +5,8 @@ using Distributions
 include("../problemStruct.jl")
 #using. problemStruct
 
+include("../models/radarMeasurement.jl")
+
 function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     # x_vec: [x, y, α, v]
     # p_vec: Parameters vector: [uα, uv, Cd]
