@@ -16,10 +16,9 @@ x_list, u_list = genTrajectory(x0, params)
 # Measurements
 rNoise = Chisq(4)
 rdNoise = Normal(0,.2)
-azNoise = Normal(0.0, deg2rad(2))
 elNoise = Normal(0.0, deg2rad(2))
 
-radar = Radar([50.0,0.0], rNoise, rdNoise, azNoise, elNoise)
+radar = Radar([50.0,0.0], rNoise, rdNoise, elNoise)
 y_list = radarMeasure(x_list, radar)
 
 xMat = stack(x_list, dims=1)

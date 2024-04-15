@@ -32,7 +32,6 @@ struct Radar
     # Noises
     rNoise::UnivariateDistribution # returns a sample for the range noise 
     rdNoise::UnivariateDistribution # returns a sample for the range velocity noise
-    azNoise::UnivariateDistribution # returns a sample for the range noise
     elNoise::UnivariateDistribution # returns a sample for the range noise
 end
 
@@ -101,15 +100,18 @@ end
 function likelihood(y::Vector{Float64}, x::Vector{Float64}, radar::Radar)
     """
     A general likelihood function for the radar model.
+    Becuase the measurements are independent:
+    P(y|x) = P(y1|x)*P(y2|x)*P(y3|x)
+    The P(y1|x) is from the noise model associated with the radar input
     Inputs:
         y: the measurement vector [el, r, rd]
         x: the state vector [x, y, α, v]
     Outputs:
-        likelihood: The P(y|x)
+        likelihood: The P(y|x) 
     """
 
+    Display(radar.rNoise)
     
-
 
 
 end
