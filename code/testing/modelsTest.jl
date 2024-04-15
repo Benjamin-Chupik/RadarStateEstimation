@@ -3,6 +3,10 @@ include("../models/fixedWing.jl")
 include("../models/radarMeasurement.jl")
 
 
+#--------------------------------------------  
+# Dynamics and measurement Generation
+#--------------------------------------------  
+
 # Dynamics
 Cd = 1.0
 params = Params(.5, 100.0, Cd, .2)
@@ -30,6 +34,11 @@ y_list = radarMeasure(x_list, radar)
 
 xMat = stack(x_list, dims=1)
 yMat = stack(y_list, dims=1)
+
+
+#--------------------------------------------  
+# Plotting
+#--------------------------------------------  
 
 using Plots
 # Dynamics
