@@ -10,6 +10,8 @@
 
 # end
 using LinearAlgebra
+using Printf
+
 
 struct Radar
     """
@@ -51,6 +53,8 @@ function radarMeasure(x::Vector{Float64}, radar::Radar)
     r = norm(dp) + radar.rNoise()
     v_vector = [cos(α), sin(α)].*v
     rd = dot(dp, v_vector)/norm(dp) + radar.rdNoise()# Get the component of the velocity pointing in the direction of the radar (same direction as dp) 
+    #rd_math = v*cos(α - atan(x[2]-radar.p[2], x[1]-radar.p[1]))
+    #@printf("%f\n\tVector: %f\n\tTrig: %f\n", rd-rd_math, rd, rd_math )
     el = atan(dp[2], dp[1]) + radar.elNoise()
 
     y = [el, r, rd]

@@ -15,12 +15,15 @@ function rNoise()
     return rand(Chisq(4))
 end
 function rdNoise()
+    #return 0.0
     return rand(Normal(0,.2))
 end
 function azNoise()
+    #return 0.0
     return rand(Normal(0.0, deg2rad(2)))
 end
 function elNoise()
+    #return 0.0
     return rand(Normal(0.0, deg2rad(2)))
 end
 radar = Radar([50.0,0.0], rNoise, rdNoise, azNoise, elNoise)
