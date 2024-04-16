@@ -48,10 +48,10 @@ ynames = ["elevation", "Range", "Range Velocity"]
 pList = []
 for i in 1:3
     p_temp = scatter(params.ks, yMat[:,i], xlabel = "k", ylabel = ynames[i])
-    plot!(params.ks, yMat_noNoise[:,i])
+    plot!(params.ks, yMat_noNoise[2:end,i])
     push!(pList, p_temp)
 end
-display(plot(pList[1], pList[2], pList[3], layout = (length(pList), 1), title = "Measurement testing", size=(400,800)))
+display(plot(pList[1], pList[2], pList[3], layout = (3, 1), title = "Measurement testing", size=(400,800)))
 
 
 x_fromy = y2p(y_list, radar)
