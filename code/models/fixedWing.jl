@@ -76,16 +76,16 @@ function fixedWingMeasDer(xk::Vector{Float64}, radar::Radar)
 
     H = zeros(3,4)
 
-    H[1,1] = drdx
-    H[1,2] = drdz
+    H[1,1] = dedx
+    H[1,2] = dedz
 
-    H[2,1] = drddx
-    H[2,2] = drddz
-    H[2,3] = drddα
-    H[2,4] = drddv
+    H[2,1] = drdx
+    H[2,2] = drdz
 
-    H[3,1] = dedx
-    H[3,2] = dedz
+    H[3,1] = drddx
+    H[3,2] = drddz
+    H[3,3] = drddα
+    H[3,4] = drddv
 
     return H
 end
