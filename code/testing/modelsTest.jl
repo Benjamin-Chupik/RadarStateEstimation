@@ -60,7 +60,3 @@ p = plot(xMat[:,1], xMat[:,2], label = "Exact Position")
 scatter!(x_fromy_mat[:,1], x_fromy_mat[:,2], label = "Position from measurements")
 display(p)
 
-
-# Testing random
-i = 10
-likelihood(y_list[i], x_list[i], radar)
