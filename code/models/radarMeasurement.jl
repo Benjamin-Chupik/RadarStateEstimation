@@ -167,13 +167,7 @@ function likelihood(y::Vector{Float64}, x::Vector{Float64}, radar::Radar)
     # Y predicted with no noise
     y_measure = radarMeasure_noNoise(x, radar)
 
-    @printf("Y_Input: %f\n", y[1])
-    @printf("Y_measure_predict: %f\n", y_measure[1])
-
-    x_plot = -2:.1:20
-    display(plot(x_plot, pdf(y_measure[1]+radar.elNoise, x_plot), title="Temp Plot"))
-    
-    Λ = zeros(3)
+    Λ = Vector{Float64}(undef, 3)
     Λ[1] = pdf(y_measure[1]+radar.elNoise, y[1]) # el
     Λ[2] = pdf(y_measure[2]+radar.rNoise, y[2]) # r
     Λ[3] = pdf(y_measure[3]+radar.rdNoise, y[3]) # rdot
