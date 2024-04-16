@@ -3,7 +3,7 @@ This file hold basic kinematic models.
 Manily used for estimators
 """
 
-function simulate(xk::Vector{Float64}, params::Params)
+function simulate(xk::Vector{Float64}, dt::Float64)
     """
     Simulates the dynamics simulate the dynamics one k forward in time using numeric integration. 
     Uses simple linear dynamics
@@ -23,7 +23,6 @@ function simulate(xk::Vector{Float64}, params::Params)
     z = xk[2]
     α = xk[3]
     v = xk[4]
-    dt = params.dt
 
     xd = v*cos(α)
     zd = v*sin(α)
