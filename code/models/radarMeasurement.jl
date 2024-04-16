@@ -171,13 +171,12 @@ function likelihood(y::Vector{Float64}, x::Vector{Float64}, radar::Radar)
     @printf("Y_measure_predict: %f\n", y_measure[1])
 
     x_plot = -2:.1:20
-    display(plot(x_plot, pdf(y_measure[1]+radar.rNoise, x_plot), title="Temp Plot"))
+    display(plot(x_plot, pdf(y_measure[1]+radar.elNoise, x_plot), title="Temp Plot"))
     
     Λ = zeros(3)
-    @show pdf(y_measure[1]+radar.rNoise, y[1])
-    Λ[1] = pdf(y_measure[1]+radar.rNoise, y[1]) # r
-    Λ[2] = pdf(y_measure[2]+radar.rdNoise, y[2]) # rdot
-    Λ[3] = pdf(y_measure[3]+radar.elNoise, y[3]) # el
+    Λ[1] = pdf(y_measure[1]+radar.elNoise, y[1]) # el
+    Λ[2] = pdf(y_measure[2]+radar.rNoise, y[2]) # r
+    Λ[3] = pdf(y_measure[3]+radar.rdNoise, y[3]) # rdot
     @show Λ
     return prod(Λ)
 
