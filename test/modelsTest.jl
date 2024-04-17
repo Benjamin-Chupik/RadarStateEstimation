@@ -1,6 +1,7 @@
-include("../problemStruct.jl")
-include("../models/fixedWing.jl")
-include("../models/radarMeasurement.jl")
+using RadarStateEstimation
+using RadarStateEstimation.problemStruct # This exports Parmas
+
+using Distributions
 
 
 #--------------------------------------------  
@@ -11,16 +12,16 @@ include("../models/radarMeasurement.jl")
 Cd = 1.0
 params = Params(.5, 100.0, Cd, .2)
 x0 = [0.0, 50.0, 0.0, 5.0]
-x_list, u_list = genTrajectory(x0, params)
+x_list, u_list = RadarStateEstimation.models.fixedWing.genTrajectory(x0, params)
 
 # Measurements
 rNoise = Chisq(4)
 rdNoise = Normal(0,.2)
 elNoise = Normal(0.0, deg2rad(2))
 
-radar = Radar([50.0,0.0], rNoise, rdNoise, elNoise)
-y_list = radarMeasure(x_list, radar)
-y_list_noNoise = radarMeasure_noNoise(x_list, radar)
+radar = RadarStateEstimation.models.radar.Radar([50.0,0.0], rNoise, rdNoise, elNoise)
+y_list = RadarStateEstimation.models.radar.radarMeasure(x_list, radar)
+y_list_noNoise = RadarStateEstimation.models.radar.radarMeasure_noNoise(x_list, radar)
 
 xMat = stack(x_list, dims=1)
 yMat = stack(y_list, dims=1)
@@ -54,7 +55,7 @@ end
 display(plot(pList[1], pList[2], pList[3], layout = (3, 1), title = "Measurement testing", size=(400,800)))
 
 
-x_fromy = y2p(y_list, radar)
+x_fromy = RadarStateEstimation.models.radar.y2p(y_list, radar)
 x_fromy_mat = stack(x_fromy, dims=1)
 p = plot(xMat[:,1], xMat[:,2], label = "Exact Position")
 scatter!(x_fromy_mat[:,1], x_fromy_mat[:,2], label = "Position from measurements")

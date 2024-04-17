@@ -1,8 +1,9 @@
+module EKF
 using LinearAlgebra
 
-include("../problemStruct.jl")
-include("../models/fixedWing.jl")
-include("../models/radarMeasurement.jl")
+using RadarStateEstimation.problemStruct
+using RadarStateEstimation.models.radar
+using RadarStateEstimation.models.fixedWing
 
 
 function EKF_step!(x_list, P_list, uk, yk1, Qk, Rk, params, radar)
@@ -81,4 +82,5 @@ function EKF_bulk(x0, P0, U, Y, Qk, Rk, params, radar)
     end
 
     return (x_list, P_list)
+end
 end

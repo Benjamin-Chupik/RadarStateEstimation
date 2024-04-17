@@ -9,6 +9,10 @@
 #     # orientation
 
 # end
+module radar
+
+export Radar
+
 using LinearAlgebra
 using Printf
 using Distributions
@@ -207,4 +211,6 @@ function y2p(ys::Vector{Vector{Float64}}, radar::Radar)
         push!(ps, y2p(y, radar))
     end
     return ps
+end
+
 end

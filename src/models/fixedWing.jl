@@ -1,12 +1,12 @@
+module fixedWing
 using DifferentialEquations
 # Infor on DIffiQ package: https://docs.sciml.ai/DiffEqDocs/stable/basics/overview/
 using Distributions
 
-include("../problemStruct.jl")
-include("../models/radarMeasurement.jl")
-#using. problemStruct
+using RadarStateEstimation.problemStruct
+using RadarStateEstimation.models.radar
 
-include("../models/radarMeasurement.jl")
+#include("../models/radarMeasurement.jl")
 
 function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     # x_vec: [x, y, α, v]
@@ -144,4 +144,7 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
     end
 
     return x_list::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}
+end
+
+
 end

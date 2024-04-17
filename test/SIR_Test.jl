@@ -1,8 +1,6 @@
-include("../problemStruct.jl")
-include("../models/fixedWing.jl")
-include("../models/radarMeasurement.jl")
-include("../models/basicKinematics.jl")
-include("../estimators/SIR.jl")
+using RadarStateEstimation
+using RadarStateEstimation.problemStruct # This exports Parmas
+
 using Plots
 
 """
@@ -13,26 +11,24 @@ This will test the SIR Particle filter with the fixed wing dynamics to see if it
 #--------------------------------------------  
 # Dynamics and measurement Generation
 #--------------------------------------------  
-
 # Dynamics
 Cd = 1.0
 params = Params(.5, 100.0, Cd, .2)
 x0 = [0.0, 50.0, 0.0, 5.0]
-x_list, u_list = genTrajectory(x0, params)
+x_list, u_list = RadarStateEstimation.models.fixedWing.genTrajectory(x0, params)
 
 # Measurements
 rNoise = Chisq(4)
 rdNoise = Normal(0,.2)
 elNoise = Normal(0.0, deg2rad(2))
 
-radar = Radar([50.0,0.0], rNoise, rdNoise, elNoise)
-y_list = radarMeasure(x_list, radar)
-y_list_noNoise = radarMeasure_noNoise(x_list, radar)
+radar = RadarStateEstimation.models.radar.Radar([50.0,0.0], rNoise, rdNoise, elNoise)
+y_list = RadarStateEstimation.models.radar.radarMeasure(x_list, radar)
+y_list_noNoise = RadarStateEstimation.models.radar.radarMeasure_noNoise(x_list, radar)
 
 xMat = stack(x_list, dims=1)
 yMat = stack(y_list, dims=1)
 yMat_noNoise = stack(y_list_noNoise, dims=1)
-
 
 
 #--------------------------------------------  
@@ -40,8 +36,8 @@ yMat_noNoise = stack(y_list_noNoise, dims=1)
 #-------------------------------------------- 
 # Other setup
 Ns = 1000 # Number of prticles to use
-dynamUp(x::Vector{Float64}, u::Vector{Float64}, dt::Float64) = simulate(x, u, Params(dt, 100.0, Cd, .2))
-pygx(y::Vector{Float64}, x::Vector{Float64}) = likelihood(y, x, radar)
+dynamUp(x::Vector{Float64}, u::Vector{Float64}, dt::Float64) = RadarStateEstimation.models.fixedWing.simulate(x, u, Params(dt, 100.0, Cd, .2))
+pygx(y::Vector{Float64}, x::Vector{Float64}) = RadarStateEstimation.models.radar.likelihood(y, x, radar)
 
 # Set up initial state particles
 x0s = Vector{Vector{Float64}}()
@@ -62,13 +58,13 @@ end
 pfMeanList = Vector{Vector{Float64}}()
 pfSTDList = Vector{Vector{Float64}}()
 
-kMax = 30
+kMax = 10
 for k in params.ks[1:kMax]
     # Particle filter
-    xPartList = SIR(x0s, u_list, Ns, y_list[1:k], params, dynamUp, pygx)
+    xPartList = RadarStateEstimation.estimators.SIR.SIR_update(x0s, u_list, Ns, y_list[1:k], params, dynamUp, pygx)
 
     # Get point estimate
-    xMean, xSTD = MMSE(xPartList)
+    xMean, xSTD = RadarStateEstimation.estimators.SIR.MMSE(xPartList)
     push!(pfMeanList, xMean)
     push!(pfSTDList, xSTD)
 

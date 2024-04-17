@@ -1,3 +1,5 @@
+module basicKinematics
+
 """
 This file hold basic kinematic models.
 Manily used for estimators
@@ -41,4 +43,4 @@ end
 
 
 
-
+end

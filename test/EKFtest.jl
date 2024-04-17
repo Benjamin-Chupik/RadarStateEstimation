@@ -1,7 +1,5 @@
-include("../problemStruct.jl")
-include("../models/fixedWing.jl")
-include("../models/radarMeasurement.jl")
-include("../estimators/EKF.jl")
+using RadarStateEstimation
+using RadarStateEstimation.problemStruct # This exports Parmas
 
 using LinearAlgebra
 using Plots
@@ -10,21 +8,28 @@ using Plots
 #--------------------------------------------  
 
 # Dynamics
-Cd = 0.1
+Cd = 1.0
 params = Params(.5, 100.0, Cd, .2)
-x0 = [50.0, 50.0, 0.3, 20.0]
-x_list, u_list = genTrajectory(x0, params)
+x0 = [0.0, 50.0, 0.0, 5.0]
+x_list, u_list = RadarStateEstimation.models.fixedWing.genTrajectory(x0, params)
 
 # Measurements
-elNoise = Normal(0.0, deg2rad(2))
-rNoise = Chisq(400) #Normal(0,.2) #
+rNoise = Chisq(4)
 rdNoise = Normal(0,.2)
+elNoise = Normal(0.0, deg2rad(2))
+
+radar = RadarStateEstimation.models.radar.Radar([50.0,0.0], rNoise, rdNoise, elNoise)
+y_list = RadarStateEstimation.models.radar.radarMeasure(x_list, radar)
+y_list_noNoise = RadarStateEstimation.models.radar.radarMeasure_noNoise(x_list, radar)
+
+xMat = stack(x_list, dims=1)
+yMat = stack(y_list, dims=1)
+yMat_noNoise = stack(y_list_noNoise, dims=1)
 
 
-radar = Radar([50.0,0.0], rNoise, rdNoise, elNoise)
-y_list = radarMeasure(x_list, radar)
-x_noisy = y2p(y_list, radar)
-
+#--------------------------------------------  
+# EKF Setup and Testing
+#--------------------------------------------  
 
 P0 = Diagonal([50, 50, 0.3, 20])
 x_init = rand(MvNormal(x0, P0))

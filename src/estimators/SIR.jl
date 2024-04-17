@@ -1,6 +1,9 @@
-using StatsBase
+module SIR
 
-function SIR(x0::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}, Ns::Int64, y_list::Vector{Vector{Float64}}, params::Params, dynamUp::Function, pygx::Function)
+using StatsBase
+using RadarStateEstimation.problemStruct
+
+function SIR_update(x0::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}, Ns::Int64, y_list::Vector{Vector{Float64}}, params::Params, dynamUp::Function, pygx::Function)
     """
     Runs the Sample Importance Resample Particle Filter
     Inputs:
@@ -56,5 +59,7 @@ function MMSE(xParticleList::Vector{Vector{Float64}})
     xMat = stack(xParticleList, dims=1)
 
     return dropdims(mean(xMat, dims=1), dims=1)::Vector{Float64}, dropdims(std(xMat, dims=1), dims=1)::Vector{Float64}
+
+end
 
 end
