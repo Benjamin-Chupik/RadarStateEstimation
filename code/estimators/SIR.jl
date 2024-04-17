@@ -1,6 +1,6 @@
 using StatsBase
 
-function SIR(x0::Vector{Vector{Float64}}, Ns::Int64, y_list::Vector{Vector{Float64}}, params::Params, dynamUp::Function, pygx::Function)
+function SIR(x0::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}, Ns::Int64, y_list::Vector{Vector{Float64}}, params::Params, dynamUp::Function, pygx::Function)
     """
     Runs the Sample Importance Resample Particle Filter
     Inputs:
@@ -18,11 +18,13 @@ function SIR(x0::Vector{Vector{Float64}}, Ns::Int64, y_list::Vector{Vector{Float
     x_kp1 = deepcopy(x0) # Preallocate Next list of particles states
     w_kp1 = Vector{Float64}(undef, Ns) # Preallocate Weights for next particles
     # Go through every measurement
-    for y in y_list[2:end]
+    for y_id in 2:length(y_list) # start at 2nd measuremnt becuase asssume first is for x0
+        y = y_list[y_id]
+        u = u_list[y_id]
         # For every particle, do SIS
         for i in 1:Ns
             # Sample new x_k
-            x_kp1[i] = dynamUp(x_k[i], params.dt) # Popagate the dynamics
+            x_kp1[i] = dynamUp(x_k[i], u, params.dt) # Popagate the dynamics
 
             # Get weightst
             w_kp1[i] = pygx(y, x_kp1[i]) # Get the measurement likelihood
@@ -53,6 +55,6 @@ function MMSE(xParticleList::Vector{Vector{Float64}})
 
     xMat = stack(xParticleList, dims=1)
 
-    return dropdims(mean(xMat, dims=1), dims=1)::Vector{Float64}
+    return dropdims(mean(xMat, dims=1), dims=1)::Vector{Float64}, dropdims(std(xMat, dims=1), dims=1)::Vector{Float64}
 
 end

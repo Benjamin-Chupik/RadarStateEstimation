@@ -39,8 +39,8 @@ yMat_noNoise = stack(y_list_noNoise, dims=1)
 # SIR Testing
 #-------------------------------------------- 
 # Other setup
-Ns = 500 # Number of prticles to use
-dynamUp(x::Vector{Float64}, dt::Float64) = simulate(x, dt)
+Ns = 1000 # Number of prticles to use
+dynamUp(x::Vector{Float64}, u::Vector{Float64}, dt::Float64) = simulate(x, u, Params(dt, 100.0, Cd, .2))
 pygx(y::Vector{Float64}, x::Vector{Float64}) = likelihood(y, x, radar)
 
 # Set up initial state particles
@@ -60,24 +60,39 @@ end
 
 
 pfMeanList = Vector{Vector{Float64}}()
+pfSTDList = Vector{Vector{Float64}}()
 
-kMax = 10
+kMax = 30
 for k in params.ks[1:kMax]
     # Particle filter
-    xPartList = SIR(x0s, Ns, y_list[1:k], params, dynamUp, pygx)
+    xPartList = SIR(x0s, u_list, Ns, y_list[1:k], params, dynamUp, pygx)
 
     # Get point estimate
-    xMean = MMSE(xPartList)
+    xMean, xSTD = MMSE(xPartList)
     push!(pfMeanList, xMean)
+    push!(pfSTDList, xSTD)
 
 end
 
 
 xPfMat = stack(pfMeanList, dims=1)
+xPfSTDMat = stack(pfSTDList, dims=1)
 
 plot(title="Particle Filter Test", xlabel="x", ylabel= "z")
 scatter(xMat[1:kMax,1], xMat[1:kMax,2], label = "Exact Postion")
 display(scatter!(xPfMat[1:kMax,1], xPfMat[1:kMax,2], label = "PF"))
+
+
+p = plot(title = "Dynamics testing")
+xnames = ["x", "z", "α", "V"]
+pList = []
+for i in 1:4
+    p_temp = scatter(params.ks, xMat[:,i], xlabel = "k", ylabel = xnames[i])
+    scatter!(params.ks[1:kMax], xPfMat[1:kMax,i], yerr=xPfSTDMat[1:kMax, i], label = "PF")
+    push!(pList, p_temp)
+end
+display(plot(pList[1], pList[2], pList[3], pList[4], layout = (length(pList), 1) , title = "Dynamics testing", size=(400,800)))
+
 
 
 

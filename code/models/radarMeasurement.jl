@@ -168,9 +168,9 @@ function likelihood(y::Vector{Float64}, x::Vector{Float64}, radar::Radar)
     y_measure = radarMeasure_noNoise(x, radar)
 
     Λ = Vector{Float64}(undef, 3)
-    Λ[1] = pdf(y_measure[1]+radar.elNoise, y[1]) # el
-    Λ[2] = pdf(y_measure[2]+radar.rNoise, y[2]) # r
-    Λ[3] = pdf(y_measure[3]+radar.rdNoise, y[3]) # rdot
+    Λ[1] = pdf(radar.elNoise, y[1] - y_measure[1]) # el
+    Λ[2] = pdf(radar.rNoise, y[2] - y_measure[2]) # r
+    Λ[3] = pdf(radar.rdNoise, y[3] - y_measure[3]) # rdot
     return prod(Λ)
 
 end

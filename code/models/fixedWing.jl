@@ -30,7 +30,7 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     dx_vec[1] = v*cos(α)
     dx_vec[2] = v*sin(α)
     dx_vec[3] = 0
-    dx_vec[4] = -v^2*Cd
+    dx_vec[4] = 0#-0.5*v^2*Cd
 
     # Controls portion
     dx_vec[1] += 0
@@ -135,7 +135,7 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
     for k in params.ks
 
         # Generate the us TODO
-        u = [rand(Normal(0, deg2rad(10))), rand(Normal(3, 1))] # [α, V]
+        u = [rand(Normal(0, deg2rad(10))), rand(Normal(0, 1))] # [α, V]
         push!(u_list, u)
 
         # Simulate one time step
