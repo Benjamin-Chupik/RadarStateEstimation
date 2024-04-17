@@ -48,7 +48,7 @@ function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
     A = [0 0 -v*sin(α) cos(α)
          0 0  v*cos(α) sin(α)
          0 0 0 0
-         0 0 0 -2*v*Cd/params.ρ]
+         0 0 0 -2*v*params.Cd/params.ρ]
     return A
 end
 

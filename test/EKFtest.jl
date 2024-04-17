@@ -3,6 +3,7 @@ using RadarStateEstimation.problemStruct # This exports Parmas
 
 using LinearAlgebra
 using Plots
+using Distributions
 #--------------------------------------------  
 # Dynamics and measurement Generation
 #--------------------------------------------  
@@ -36,10 +37,10 @@ x_init = rand(MvNormal(x0, P0))
 
 # init Qk, Rk
 Qk = Diagonal([0.5, 0.5, 0.01, 0.5])
-@show Rk = Diagonal([var(elNoise), var(rNoise), var(rdNoise)])
+Rk = Diagonal([var(elNoise), var(rNoise), var(rdNoise)])
 
-
-x_EKF, P_EKF = EKF_bulk(x_init, P0, u_list, y_list, Qk, Rk, params, radar)
+x_EKF, P_EKF = RadarStateEstimation.estimators.EKF.EKF_bulk(x_init, P0, u_list, y_list, Qk, Rk, params, radar)
+x_noisy = RadarStateEstimation.models.radar.y2p(y_list, radar)
 
 x_EKF = stack(x_EKF, dims=1)
 xMat = stack(x_list, dims=1)

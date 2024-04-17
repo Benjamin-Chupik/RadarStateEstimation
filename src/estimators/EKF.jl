@@ -1,6 +1,7 @@
 module EKF
 using LinearAlgebra
 
+using RadarStateEstimation
 using RadarStateEstimation.problemStruct
 using RadarStateEstimation.models.radar
 using RadarStateEstimation.models.fixedWing
@@ -27,15 +28,15 @@ function EKF_step!(x_list, P_list, uk, yk1, Qk, Rk, params, radar)
     xk = x_list[end]
     Pk = P_list[end]
     
-    xk1min = simulate(xk, uk, params) # nonlinear dynamics prediction
+    xk1min = RadarStateEstimation.models.fixedWing.simulate(xk, uk, params) # nonlinear dynamics prediction
     
-    Atild = fixedWingLinDyn(xk, params) # linearized dynamics at timestep
+    Atild = RadarStateEstimation.models.fixedWing.fixedWingLinDyn(xk, params) # linearized dynamics at timestep
     Fk = I + params.dt*Atild 
 
     Pk1min = Fk*Pk*Fk' + Qk # update Pmin
 
-    yk1hat = radarMeasure(xk1min, radar)
-    Hk1 = fixedWingMeasDer(xk1min, radar)
+    yk1hat = RadarStateEstimation.models.radar.radarMeasure(xk1min, radar)
+    Hk1 = RadarStateEstimation.models.fixedWing.fixedWingMeasDer(xk1min, radar)
 
     ek1 = yk1 .- yk1hat
     
