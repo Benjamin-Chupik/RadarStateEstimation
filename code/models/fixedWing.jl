@@ -30,7 +30,7 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     dx_vec[1] = v*cos(α)
     dx_vec[2] = v*sin(α)
     dx_vec[3] = 0
-    dx_vec[4] = -v^2*Cd
+    dx_vec[4] = 0#-0.5*v^2*Cd
 
     # Controls portion
     dx_vec[1] += 0
@@ -76,16 +76,16 @@ function fixedWingMeasDer(xk::Vector{Float64}, radar::Radar)
 
     H = zeros(3,4)
 
-    H[1,1] = drdx
-    H[1,2] = drdz
+    H[1,1] = dedx
+    H[1,2] = dedz
 
-    H[2,1] = drddx
-    H[2,2] = drddz
-    H[2,3] = drddα
-    H[2,4] = drddv
+    H[2,1] = drdx
+    H[2,2] = drdz
 
-    H[3,1] = dedx
-    H[3,2] = dedz
+    H[3,1] = drddx
+    H[3,2] = drddz
+    H[3,3] = drddα
+    H[3,4] = drddv
 
     return H
 end
@@ -135,7 +135,7 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
     for k in params.ks
 
         # Generate the us TODO
-        u = [rand(Normal(0, deg2rad(10))), rand(Normal(3, 1))] # [α, V]
+        u = [rand(Normal(0, deg2rad(10))), rand(Normal(0, 1))] # [α, V]
         push!(u_list, u)
 
         # Simulate one time step

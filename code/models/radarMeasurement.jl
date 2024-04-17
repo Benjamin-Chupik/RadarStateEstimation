@@ -11,6 +11,7 @@
 # end
 using LinearAlgebra
 using Printf
+using Distributions
 
 #--------------------------------------------  
 # Data Structures
@@ -93,6 +94,59 @@ function radarMeasure(xs::Vector{Vector{Float64}}, radar::Radar)
     return ys::Vector{Vector{Float64}}
 end
 
+function radarMeasure_noNoise(x::Vector{Float64}, radar::Radar)
+    """
+    Simulates a radar measuring a object flying through space. Only returns the measured center of mass of the object. 
+
+    Inputs:
+        x: the state of the aircraft. [x, y, α, v]
+    Outputs:
+        y: the measurement of the aircraft. [el, r, rd]
+            el: elevation
+            r: range
+            rd: range velocity
+    """
+
+    dp = x[1:2] - radar.p # get the delta position [x,y,z]
+    α = x[3]
+    v = x[4]
+    r = norm(dp)
+    v_vector = [cos(α), sin(α)].*v
+    rd = dot(dp, v_vector)/norm(dp) # Get the component of the velocity pointing in the direction of the radar (same direction as dp) 
+    #rd_math = v*cos(α - atan(x[2]-radar.p[2], x[1]-radar.p[1]))
+    #@printf("%f\n\tVector: %f\n\tTrig: %f\n", rd-rd_math, rd, rd_math )
+    el = atan(dp[2], dp[1])
+
+    y = [el, r, rd]
+
+    return y::Vector{Float64}
+end
+
+function radarMeasure_noNoise(xs::Vector{Vector{Float64}}, radar::Radar)
+    """
+    Simulates a radar measuring a object flying through space. Only returns the measured center of mass of the object. 
+
+    Inputs:
+        xs: the vector of states of the aircraft through discrete time. [x, y, α, v]
+    Outputs:
+        y: the measurements of the aircraft through discrete time . [el, r, rd]
+            el: elevation
+            r: range
+            rd: range velocity
+    """
+    ys = Vector{Vector{Float64}}()
+
+    # Loop through every time
+    for x in xs
+
+        y = radarMeasure_noNoise(x, radar)
+        push!(ys, y)
+    end
+
+    return ys::Vector{Vector{Float64}}
+end
+
+
 #--------------------------------------------  
 # likelihood function
 #--------------------------------------------  
@@ -110,9 +164,14 @@ function likelihood(y::Vector{Float64}, x::Vector{Float64}, radar::Radar)
         likelihood: The P(y|x) 
     """
 
-    Display(radar.rNoise)
-    
+    # Y predicted with no noise
+    y_measure = radarMeasure_noNoise(x, radar)
 
+    Λ = Vector{Float64}(undef, 3)
+    Λ[1] = pdf(radar.elNoise, y[1] - y_measure[1]) # el
+    Λ[2] = pdf(radar.rNoise, y[2] - y_measure[2]) # r
+    Λ[3] = pdf(radar.rdNoise, y[3] - y_measure[3]) # rdot
+    return prod(Λ)
 
 end
 
