@@ -15,10 +15,10 @@ function SIR_update(x0::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}
         pygx: Function to return the probablity of yk gven xk (y, x) -> float (should include noise)
     """
 
-
-
-    x_k = deepcopy(x0)
-    x_kp1 = deepcopy(x0) # Preallocate Next list of particles states
+    X = Vector{Vector{Vector{Float64}}}()
+    push!(X, deepcopy(x0))
+    x_kp1 = deepcopy(x0)
+    
     w_kp1 = Vector{Float64}(undef, Ns) # Preallocate Weights for next particles
     # Go through every measurement
     for y_id in 2:length(y_list) # start at 2nd measuremnt becuase asssume first is for x0
@@ -26,10 +26,7 @@ function SIR_update(x0::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}
         u = u_list[y_id-1]
         # For every particle, do SIS
         for i in 1:Ns
-            # Sample new x_k
-            x_kp1[i] = dynamUp(x_k[i], u, params.dt) # Popagate the dynamics
-
-            # Get weightst
+            x_kp1[i] = dynamUp(X[end][i], u, params.dt) # Popagate the dynamics
             w_kp1[i] = pygx(y, x_kp1[i]) # Get the measurement likelihood
         end
 
@@ -42,12 +39,12 @@ function SIR_update(x0::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}
             w_temp = Weights(w_kp1)
             x_kp1 = sample(x_kp1, w_temp , Ns)
         end
-
+        push!(X, deepcopy(x_kp1))
         # Move Data for next k and measurement
-        x_k .= x_kp1
+        # x_k .= x_kp1
     end
 
-    return x_k # returns the list of particles (They all have the same weight)
+    return X # returns the list of particles (They all have the same weight)
 end
 
 
