@@ -1,5 +1,7 @@
 using RadarStateEstimation
 using RadarStateEstimation.problemStruct # This exports Parmas
+import RadarStateEstimation.models.multiRotor as physMod
+import RadarStateEstimation.models.radar as radMod
 
 using Distributions
 
@@ -12,16 +14,16 @@ using Distributions
 Cd = 1.0
 params = Params(.5, 100.0, Cd, .2)
 x0 = [0.0, 50.0, 0.0, 5.0]
-x_list, u_list = RadarStateEstimation.models.fixedWing.genTrajectory(x0, params)
+x_list, u_list = physMod.genTrajectory(x0, params)
 
 # Measurements
-rNoise = Chisq(4)
+rNoise = Chisq(1)
 rdNoise = Normal(0,.2)
 elNoise = Normal(0.0, deg2rad(2))
 
-radar = RadarStateEstimation.models.radar.Radar([50.0,0.0], rNoise, rdNoise, elNoise)
-y_list = RadarStateEstimation.models.radar.radarMeasure(x_list, radar)
-y_list_noNoise = RadarStateEstimation.models.radar.radarMeasure_noNoise(x_list, radar)
+radar = radMod.Radar([50.0,0.0], rNoise, rdNoise, elNoise)
+y_list = radMod.radarMeasure(x_list, radar)
+y_list_noNoise = radMod.radarMeasure_noNoise(x_list, radar)
 
 xMat = stack(x_list, dims=1)
 yMat = stack(y_list, dims=1)
