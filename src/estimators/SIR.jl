@@ -23,7 +23,7 @@ function SIR_update(x0::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}
     # Go through every measurement
     for y_id in 2:length(y_list) # start at 2nd measuremnt becuase asssume first is for x0
         y = y_list[y_id]
-        u = u_list[y_id]
+        u = u_list[y_id-1]
         # For every particle, do SIS
         for i in 1:Ns
             # Sample new x_k
