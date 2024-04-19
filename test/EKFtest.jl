@@ -9,9 +9,12 @@ using Distributions
 #--------------------------------------------  
 
 # Dynamics
-Cd = 1.0
+Cd = 0.1
 params = Params(.5, 100.0, Cd, .2)
 x0 = [0.0, 50.0, 0.0, 5.0]
+
+Dynnoise = [Normal(0, 0.01), Normal(0, 0.01), Normal(0, 0.1), Normal(0, 10)] # Vector of Distributions for dynamics noise
+
 x_list, u_list = RadarStateEstimation.models.fixedWing.genTrajectory(x0, params)
 
 # Measurements
@@ -36,10 +39,10 @@ P0 = Diagonal([50, 50, 0.3, 20])
 x_init = rand(MvNormal(x0, P0))
 
 # init Qk, Rk
-Qk = Diagonal([0.5, 0.5, 0.01, 0.5])
+Qk = Diagonal([0.3, 0.3, 0.03, 0.3])
 Rk = Diagonal([var(elNoise), var(rNoise), var(rdNoise)])
 
-x_EKF, P_EKF = RadarStateEstimation.estimators.EKF.EKF_bulk(x_init, P0, u_list, y_list, Qk, Rk, params, radar)
+x_EKF, P_EKF = RadarStateEstimation.estimators.EKF.EKF_bulk(x_init, P0, 0*u_list, y_list, Qk, Rk, params, radar)
 x_noisy = RadarStateEstimation.models.radar.y2p(y_list, radar)
 
 x_EKF = stack(x_EKF, dims=1)

@@ -8,7 +8,7 @@ using RadarStateEstimation.models.radar
 
 #include("../models/radarMeasurement.jl")
 
-function fixedWingEOM(dx_vec, x_vec, p_vec, t)
+function fixedWingEOM(dx_vec, x_vec, p_vec, t; noise=false, noisevec=[0, 0, 0, 0])
     # x_vec: [x, y, α, v]
     # p_vec: Parameters vector: [uα, uv, Cd]
 
@@ -39,7 +39,10 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     dx_vec[4] += uv
 
     # Dynamics Noise portion TODO
-
+    # if noise
+    #     dx_vec[3] += uα
+    #     dx_vec[4] += uv
+    # end
 end
 
 function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
@@ -138,8 +141,10 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
         u = [rand(Normal(0, deg2rad(10))), rand(Normal(0, 1))] # [α, V]
         push!(u_list, u)
 
+        noise = [0, 0, 0, rand(Normal(0, 5))]
         # Simulate one time step
-        xkp1 = simulate(x_list[end], u, params)
+
+        xkp1 = simulate(x_list[end], u, params) .+ noise
         push!(x_list, xkp1)
     end
 
