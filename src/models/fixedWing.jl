@@ -8,7 +8,7 @@ using RadarStateEstimation.models.radar
 
 #include("../models/radarMeasurement.jl")
 
-function fixedWingEOM(dx_vec, x_vec, p_vec, t; noise=false, noisevec=[0, 0, 0, 0])
+function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     # x_vec: [x, y, α, v]
     # p_vec: Parameters vector: [uα, uv, Cd]
 
@@ -48,10 +48,11 @@ end
 function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
     α  = xk[3]
     v = xk[4]
-    A = [0 0 -v*sin(α) cos(α)
-         0 0  v*cos(α) sin(α)
-         0 0 0 0
-         0 0 0 -2*v*params.Cd/params.ρ]
+    A = [0 0 -v*sin(α) cos(α) 0
+         0 0  v*cos(α) sin(α) 0
+         0 0 0 0 1
+         0 0 0 -v*params.Cd/params.ρ
+         0 0 0 0 0]
     return A
 end
 
@@ -77,7 +78,7 @@ function fixedWingMeasDer(xk::Vector{Float64}, radar::Radar)
     drddx = -v*sin(α-e)*-dedx
     drddz = -v*sin(α-e)*-dedz
 
-    H = zeros(3,4)
+    H = zeros(3,length(xk))
 
     H[1,1] = dedx
     H[1,2] = dedz
