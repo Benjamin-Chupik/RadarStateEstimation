@@ -8,7 +8,7 @@ using RadarStateEstimation.models.radar
 
 #include("../models/radarMeasurement.jl")
 
-function fixedWingEOM(dx_vec, x_vec, p_vec, t; noise=false, noisevec=[0, 0, 0, 0])
+function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     # x_vec: [x, y, α, v, w]
     # p_vec: Parameters vector: [uv, uw, Cd]
 
@@ -29,7 +29,7 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t; noise=false, noisevec=[0, 0, 0, 0
     dx_vec[2] = v*sin(α)
     dx_vec[3] = w
     dx_vec[4] = -0.5*v^2*Cd*rho
-    dx_vec[5] = 0 # no rotational drag
+    dx_vec[5] = -20*sign(w)*rho*w^2# clamp(-0.1*-0.1*sign(α)*α^2, -0.5, 0.5) # no rotational drag
 
     # Controls portion
     dx_vec[1] += 0
@@ -132,29 +132,21 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
 
     u_list = Vector{Vector{Float64}}()
 
-    
     # Go thorugh all the descrete times
     for k in params.ks
 
         # Generate the us TODO
         xk = x_list[end]
-
-        uw = rand(Normal(0, deg2rad(1)))
-        if abs(xk[3]) > deg2rad(2) 
-            uw = -sign(xk[3])*abs(uw)
-        elseif abs(xk[5]) > deg2rad(2) 
-            uw = -sign(xk[3])*abs(uw)
-        end
         
-
         uv = rand(Normal(1, 1))
-        u = [uv, uw] # [V, w]
+        uw = rand(Normal(0, deg2rad(10)))
+
+        u = [uv, uw] 
         push!(u_list, u)
 
-        noise = [0, 0, 0, 0, 0]
         # Simulate one time step
 
-        xkp1 = simulate(xk, u, params) .+ noise
+        xkp1 = simulate(xk, u, params)
         push!(x_list, xkp1)
     end
 
