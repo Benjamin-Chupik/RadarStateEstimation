@@ -1,6 +1,6 @@
 using RadarStateEstimation
 using RadarStateEstimation.problemStruct # This exports Parmas
-import RadarStateEstimation.models.multiRotor as physMod
+import RadarStateEstimation.models.fixedWing as physMod
 import RadarStateEstimation.models.radar as radMod
 
 using Distributions
@@ -11,9 +11,9 @@ using Distributions
 #--------------------------------------------  
 
 # Dynamics
-Cd = 1.0
-params = Params(.5, 100.0, Cd, .2)
-x0 = [0.0, 50.0, 0.0, 5.0]
+Cd = .2
+params = Params(.5, 100.0, Cd, 1.0)
+x0 = [0.0, 50.0, 0.0, 5.0, 0.0] # [x, z, alpha, v, w]
 x_list, u_list = physMod.genTrajectory(x0, params)
 
 # Measurements
@@ -37,13 +37,13 @@ yMat_noNoise = stack(y_list_noNoise, dims=1)
 using Plots
 # Dynamics
 p = plot(title = "Dynamics testing")
-xnames = ["x", "z", "α", "V"]
+xnames = ["x", "z", "α", "V", "w"]
 pList = []
-for i in 1:4
+for i in 1:5
     p_temp = scatter(params.ks, xMat[:,i], xlabel = "k", ylabel = xnames[i])
     push!(pList, p_temp)
 end
-display(plot(pList[1], pList[2], pList[3], pList[4], layout = (length(pList), 1) , title = "Dynamics testing", size=(400,800)))
+display(plot(pList[1], pList[2], pList[3], pList[4], pList[5], layout = (length(pList), 1) , title = "Dynamics testing", size=(400,800)))
 
 
 # Measuremetns
@@ -60,6 +60,6 @@ display(plot(pList[1], pList[2], pList[3], layout = (3, 1), title = "Measurement
 x_fromy = RadarStateEstimation.models.radar.y2p(y_list, radar)
 x_fromy_mat = stack(x_fromy, dims=1)
 p = plot(xMat[:,1], xMat[:,2], label = "Exact Position")
-scatter!(x_fromy_mat[:,1], x_fromy_mat[:,2], label = "Position from measurements")
+#scatter!(x_fromy_mat[:,1], x_fromy_mat[:,2], label = "Position from measurements")
 display(p)
 
