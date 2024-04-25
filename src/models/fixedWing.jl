@@ -10,7 +10,7 @@ using RadarStateEstimation.models.radar
 
 function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     # x_vec: [x, y, α, v, w]
-    # p_vec: Parameters vector: [uα, uv, Cd, ρ]
+    # p_vec: Parameters vector: [uv, uw, Cd]
 
     # Unpacking
     x = x_vec[1]
@@ -21,25 +21,29 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
 
     uα = p_vec[1]
     uv = p_vec[2]
+
     Cd = p_vec[3]
-    ρ = p_vec[4] # dencity
+    rho = p_vec[4]
 
     # Dyncamics Propogation
     dx_vec[1] = v*cos(α)
     dx_vec[2] = v*sin(α)
-    dx_vec[3] = 0
-    dx_vec[4] = -0.5* ρ * v^2*Cd
-    dx_vec[5] = 0.0
+    dx_vec[3] = w
+    dx_vec[4] = -0.5*v^2*Cd*rho
+    dx_vec[5] = 0 #-20*sign(w)*rho*w^2 #rotational drag?
 
     # Controls portion
     dx_vec[1] += 0
     dx_vec[2] += 0
     dx_vec[3] += uα
     dx_vec[4] += uv
-    dx_vec[5] += 0.0
+    dx_vec[5] += 0
 
     # Dynamics Noise portion TODO
-
+    # if noise
+    #     dx_vec[3] += uα
+    #     dx_vec[4] += uv
+    # end
 end
 
 function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
@@ -48,7 +52,7 @@ function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
     A = [0 0 -v*sin(α) cos(α) 0
          0 0  v*cos(α) sin(α) 0
          0 0 0 0 1
-         0 0 0 -v*params.Cd/params.ρ
+         0 0 0 -v*params.Cd/params.ρ 0
          0 0 0 0 0]
     return A
 end
@@ -135,7 +139,11 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
         # Generate the us TODO
         xk = x_list[end]
         
-        u = [rand(Normal(0, deg2rad(2))), rand(Normal(2, 5))] # [α, V]
+        uα = rand(Normal(0, deg2rad(10)))
+        uv = rand(Normal(25, 5))
+        
+
+        u = [uα, uv] 
         push!(u_list, u)
 
         # Simulate one time step
