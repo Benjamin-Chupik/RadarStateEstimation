@@ -9,8 +9,8 @@ using RadarStateEstimation.models.radar
 #include("../models/radarMeasurement.jl")
 
 function fixedWingEOM(dx_vec, x_vec, p_vec, t)
-    # x_vec: [x, y, α, v]
-    # p_vec: Parameters vector: [uα, uv, Cd]
+    # x_vec: [x, y, α, v, w]
+    # p_vec: Parameters vector: [uα, uv, Cd, ρ]
 
     if x_vec[4]<0
         x_vec[4]=0
@@ -21,22 +21,26 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     y = x_vec[2]
     α = x_vec[3]
     v = x_vec[4]
+    w = x_vec[5]
 
     uα = p_vec[1]
     uv = p_vec[2]
     Cd = p_vec[3]
+    ρ = p_vec[4] # dencity
 
     # Dyncamics Propogation
     dx_vec[1] = v*cos(α)
     dx_vec[2] = v*sin(α)
     dx_vec[3] = 0
-    dx_vec[4] = -0.5*v^2*Cd
+    dx_vec[4] = -0.5* ρ * v^2*Cd
+    dx_vec[5] = -0.5*v^2*Cd
 
     # Controls portion
     dx_vec[1] += 0
     dx_vec[2] += 0
     dx_vec[3] += uα
     dx_vec[4] += uv
+    dx_vec[5] += 0
 
     # Dynamics Noise portion TODO
 
@@ -56,7 +60,7 @@ function simulate(xk::Vector{Float64}, u::Vector{Float64}, params::Params)
 
     # Setup ODE
     tspan = (0.0, params.dt) # dosent matter what time it starts on , just integrate for the dt time
-    prob = ODEProblem(fixedWingEOM, xk, tspan, [u[1], u[2], params.Cd])
+    prob = ODEProblem(fixedWingEOM, xk, tspan, [u[1], u[2], params.Cd, params.ρ])
 
     t, x = solve(prob, Tsit5())
 

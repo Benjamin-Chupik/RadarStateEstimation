@@ -43,7 +43,7 @@ for i in 1:5
     p_temp = scatter(params.ks, xMat[:,i], xlabel = "k", ylabel = xnames[i])
     push!(pList, p_temp)
 end
-display(plot(pList[1], pList[2], pList[3], pList[4], pList[5], layout = (length(pList), 1) , title = "Dynamics testing", size=(400,800)))
+display(plot(pList[1], pList[2], pList[3], pList[4], pList[5], layout = (length(pList), 1) , title = "Dynamics testing", size=(800,800)))
 
 
 # Measuremetns
