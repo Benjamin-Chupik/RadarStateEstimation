@@ -92,10 +92,15 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
     for k in params.ks
 
         # Generate the us TODO
-        u = [rand(Normal(0, deg2rad(10))), rand(Normal(0, 5))] # [α, V]
-        if rand() < 0.05 # with 5% likeilihood take a large turn
-            u = [deg2rad(180), 3] # [α, V]
-        end
+        α_dist = MixtureModel(Normal[
+            Normal(-90, deg2rad(1)),
+            Normal(0, deg2rad(3)),
+            Normal(90, deg2rad(1))], [0.01, 0.98, 0.01])
+
+        u = [rand(α_dist), rand(Normal(0, 5))] # [α, V]
+        #if rand() < 0.05 # with 5% likeilihood take a large turn
+        #    u = [deg2rad(180), 3] # [α, V]
+        #end
         
         push!(u_list, u)
 

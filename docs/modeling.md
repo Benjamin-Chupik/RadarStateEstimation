@@ -92,7 +92,7 @@ u =
 \begin{bmatrix}
 0 \\
 0 \\
-0.9\mathcal{N}(0, 3.0) +  0.05\mathcal{N}(90, 1.0) + 0.05\mathcal{N}(-90, 1.0) \hspace{1cm} \text{[deg/s]} \\
+0.98\mathcal{N}(0, 3.0) +  0.01\mathcal{N}(90, 1.0) + 0.01\mathcal{N}(-90, 1.0) \hspace{1cm} \text{[deg/s]} \\
 \mathcal{N}(1, 3.0) \hspace{1cm} \text{[m/s/s]} \\
 0
 \end{bmatrix}
