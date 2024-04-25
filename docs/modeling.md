@@ -101,7 +101,8 @@ $$
 This returns the following pseudorandom trajectories. 
 
 
-==Add plot here==
+![Fixed Wing Example Path](./figures/multirotorDubensSimpleExampleTrajectory.svg)
+
 
 This is different enough from the fixed wing model to allow for identification between the systems while also making them similar enough to be different. 
 
@@ -109,7 +110,7 @@ This is different enough from the fixed wing model to allow for identification b
 
 ### Radar
 
-The radar system is approximated to measure the elevation $e$, range $r$, and range velocity $\dot{r}$ of the object's center of mass with respect to the radars' location $p_{r} = x_r, z_r$. This avoids the complexity of point clouds and centroiding that more accurate radar models would have. A more complex radar model that includes characterizations like surface area, and rotor speed would be useful for characterization, but add too much complexity at this time. The model also includes noise $\mathcal{v}$ to model sensor noise and environemental noise. The following is the model
+The radar system is approximated to measure the elevation $e$, range $r$, and range velocity $\dot{r}$ of the object's center of mass with respect to the radars' location $p_{r} = x_r, z_r$. This avoids the complexity of point clouds and centroiding that more accurate radar models would have. A more complex radar model that includes characterizations like surface area, and rotor speed would be useful for characterization, but add too much complexity at this time. The model also includes noise $\mathcal{v}$ to model sensor noise and environmental noise. The following is the model
 
 $$
 y = 
@@ -134,7 +135,7 @@ v \cos{\alpha - \tan^{-1}{\frac{z-z_r}{x-x_r}}}
 \mathcal{v}
 $$
 
-The measurement noise $\mathcal{v}$ is designed to realistic model radar noise without getting too low level. The elevation noise captures sensor uncertainty in its angle, so it is a normal distribution centered around zero. The range noise captures the environmental noise from air density uncertainties and multipathing. These errors cause the signal to return to the radar slower than expected, which means that the object's measured distance will be too large. The noise is a Chi Squared distribution, so it is always positive. Finaly, the velocity is a normal distribution to take into account doppler errors. 
+The measurement noise $\mathcal{v}$ is designed to realistic model radar noise without getting too low level. The elevation noise captures sensor uncertainty in its angle, so it is a normal distribution centered around zero. The range noise captures the environmental noise from air density uncertainties and multipathing. These errors cause the signal to return to the radar slower than expected, which means that the object's measured distance will be too large. The noise is a Chi Squared distribution, so it is always positive. Finally, the velocity is a normal distribution to take into account doppler errors. 
 
 $$
 \mathcal{v} = 
@@ -148,7 +149,8 @@ $$
 
 This creates the following example measurements:
 
-==Include mesurements and dynamics pictture here==
+![Fixed Wing Example Path](./figures/fixedWingDubensSimpleExampleMeasurements.svg)
+![Fixed Wing Example Path](./figures/fixedWingDubensSimpleExampleMeasurements_xz.svg)
 
 
 This is not perfect to real life and a good improvement is to have the noise depend on the state of the object. Have the elevation noise increase with the distance away, and have the distance noise increase with distance. This may be incorporated in the future, but the code is currently made for static distributions. 
