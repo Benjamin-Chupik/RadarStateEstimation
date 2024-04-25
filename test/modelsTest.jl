@@ -14,7 +14,7 @@ using Distributions
 Cd = .1
 params = Params(.5, 100.0, Cd, 1.0)
 x0 = [0.0, 50.0, 0.0, 25.0, 0.0] # [x, z, alpha, v, w]
-x_list, u_list = physMod.genTrajectory(x0, params)
+x_list, u_list, w_list = physMod.genTrajectory(x0, params)
 
 # Measurements
 rNoise = Chisq(1)
@@ -57,11 +57,13 @@ end
 display(plot(pList[1], pList[2], pList[3], layout = (3, 1), title = "Measurement testing", size=(400,800)))
 
 
-x_fromy = RadarStateEstimation.models.radar.y2p(y_list, radar)
-x_fromy_mat = stack(x_fromy, dims=1)
-p = plot(xMat[:,1], xMat[:,2], label = "Exact Position", aspect_ratio=:equal)
-#scatter!(x_fromy_mat[:,1], x_fromy_mat[:,2], label = "Position from measurements")
+wMat = stack(w_list, dims=1)
+p = plot(params.ks, wMat[2:end, 1])
 display(p)
 
-# p = plot(params.ks, xMat[:,3])
-# display(p)
+x_fromy = RadarStateEstimation.models.radar.y2p(y_list, radar)
+x_fromy_mat = stack(x_fromy, dims=1)
+
+p = plot(xMat[:,1], xMat[:,2], label = "Exact Position", aspect_ratio=:equal)
+display(p)
+

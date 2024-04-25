@@ -7,7 +7,7 @@ using RadarStateEstimation.models.radar
 using RadarStateEstimation.models.fixedWing
 
 
-function EKF_step!(x_list, P_list, uk, yk1, Qk, Rk, params, radar)
+function EKF_step!(x_list, P_list, uk, wk, yk1, Qk, Rk, params, radar)
     """
     Updates the x_list with xk+1 with an EKF prediction
     Inputs:
@@ -28,7 +28,7 @@ function EKF_step!(x_list, P_list, uk, yk1, Qk, Rk, params, radar)
     xk = x_list[end]
     Pk = P_list[end]
     
-    xk1min = RadarStateEstimation.models.fixedWing.simulate(xk, uk, params) # nonlinear dynamics prediction
+    xk1min = RadarStateEstimation.models.fixedWing.simulate(xk, uk, wk, params) # nonlinear dynamics prediction
     
     Atild = RadarStateEstimation.models.fixedWing.fixedWingLinDyn(xk, params) # linearized dynamics at timestep
     Fk = I + params.dt*Atild 
@@ -50,7 +50,7 @@ function EKF_step!(x_list, P_list, uk, yk1, Qk, Rk, params, radar)
     push!(P_list, Pk1plus)
 end
 
-function EKF_bulk(x0, P0, U, Y, Qk, Rk, params, radar)
+function EKF_bulk(x0, P0, U, W, Y, Qk, Rk, params, radar)
     """
     Updates the x_list with xk+1 with an EKF prediction
     Inputs:
@@ -79,7 +79,7 @@ function EKF_bulk(x0, P0, U, Y, Qk, Rk, params, radar)
 
     for k in 1:K
         println("k=$(k)")
-        EKF_step!(x_list, P_list, U[k], Y[k+1], Qk, Rk, params, radar)
+        EKF_step!(x_list, P_list, U[k], W[k+1], Y[k+1], Qk, Rk, params, radar)
     end
 
     return (x_list, P_list)
