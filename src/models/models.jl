@@ -2,7 +2,6 @@ module models
     
 export  fixedWing,
         radar,
-        dubinsAiraft,
         basicKinematics,
         multiRotor
 
@@ -11,7 +10,6 @@ export  fixedWing,
 include("radar.jl")
 include("fixedWing.jl")
 include("multiRotor.jl")
-include("dubinsAircraft.jl")
 include("basicKinematics.jl")
 
 
