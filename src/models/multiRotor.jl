@@ -1,7 +1,7 @@
 module multiRotor
-using DifferentialEquations
+using DifferentialEquations: ODEProblem, solve, Tsit5
 # Infor on DIffiQ package: https://docs.sciml.ai/DiffEqDocs/stable/basics/overview/
-using Distributions
+using Distributions: MixtureModel, Normal
 
 using RadarStateEstimation.problemStruct
 using RadarStateEstimation.models.radar

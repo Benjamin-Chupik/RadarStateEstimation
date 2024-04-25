@@ -13,9 +13,9 @@ module radar
 
 export Radar
 
-using LinearAlgebra
+using LinearAlgebra: dot, norm
 using Printf
-using Distributions
+using Distributions: MixtureModel, Normal, UnivariateDistribution
 
 #--------------------------------------------  
 # Data Structures
