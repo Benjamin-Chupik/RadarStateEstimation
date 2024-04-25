@@ -80,7 +80,15 @@ This model generates pseudorandom trajectories, one of which is:
 
 This is a realistic looking aircraft trajectory with the pilot ascending up and then curving down. The specific parameters may be tuned to give slightly different behavior, but the general shapes of the trajectories generated will stay the same. 
 
-#### Dubens
+#### Model Noise (w)
+The model noise mainly takes into account wind affects. To keep the model simple, the wind affects the change in x and z states. The wind is modeled as colored noise because the wind changes directions slowly and is not white. More specific, its model as a first order autoregressive function. An example generation of wind noise is as follows: 
+
+============================
+Add wind noise example here
+============================
+
+Note: The wind is held constant for a time step. 
+
 
 ### Multirotor - Dubens lite
 The goal of the Multirotor model is to generate a smooth trajectory that has general maneuvers in it, and some multirotor specific maneuvers. It should look like a plausible trajectory for a multirotor aircraft. This trajectory should look similar to the fixed wing model for most of the time, but should allow for occasional sharp turns, and lowering the velocity to zero.
