@@ -10,7 +10,7 @@ using RadarStateEstimation.models.radar
 
 function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     # x_vec: [x, y, α, v, w]
-    # p_vec: Parameters vector: [uv, uw, Cd]
+    # p_vec: Parameters vector: [uα, uv, Cd, ρ]
 
     # Unpacking
     x = x_vec[1]
@@ -19,30 +19,27 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     v = x_vec[4]
     w = x_vec[5]
 
-    uv = p_vec[1]
-    uw = p_vec[2]
+    uα = p_vec[1]
+    uv = p_vec[2]
     Cd = p_vec[3]
-    rho = p_vec[4]
+    ρ = p_vec[4] # dencity
 
     # Dyncamics Propogation
     dx_vec[1] = v*cos(α)
     dx_vec[2] = v*sin(α)
-    dx_vec[3] = w
-    dx_vec[4] = -0.5*v^2*Cd*rho
-    dx_vec[5] = -20*sign(w)*rho*w^2# clamp(-0.1*-0.1*sign(α)*α^2, -0.5, 0.5) # no rotational drag
+    dx_vec[3] = 0
+    dx_vec[4] = -0.5* ρ * v^2*Cd
+    dx_vec[5] = 0.0
 
     # Controls portion
     dx_vec[1] += 0
     dx_vec[2] += 0
-    dx_vec[3] += 0
+    dx_vec[3] += uα
     dx_vec[4] += uv
-    dx_vec[5] += uw
+    dx_vec[5] += 0.0
 
     # Dynamics Noise portion TODO
-    # if noise
-    #     dx_vec[3] += uα
-    #     dx_vec[4] += uv
-    # end
+
 end
 
 function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
@@ -119,7 +116,7 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
     """
     Updates the x_list to simulate the dynamics one k forward in time using numeric integration. 
     Inputs:
-        x0: Initial state [x, z, α, v]
+        x0: Initial state [x, z, α, v, w]
         Params: the problem parameters
     Outputs
         x_list: A list of states for every time step. 
@@ -138,10 +135,7 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
         # Generate the us TODO
         xk = x_list[end]
         
-        uv = rand(Normal(1, 1))
-        uw = rand(Normal(0, deg2rad(10)))
-
-        u = [uv, uw] 
+        u = [rand(Normal(0, deg2rad(2))), rand(Normal(2, 5))] # [α, V]
         push!(u_list, u)
 
         # Simulate one time step

@@ -33,7 +33,7 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     dx_vec[2] = v*sin(α)
     dx_vec[3] = 0
     dx_vec[4] = -0.5* ρ * v^2*Cd
-    dx_vec[5] = -0.5*v^2*Cd
+    dx_vec[5] = 0
 
     # Controls portion
     dx_vec[1] += 0
