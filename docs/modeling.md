@@ -35,7 +35,7 @@ $$
 v \cos{\alpha} \\
 v \sin{\alpha} \\
 0\\
--\frac{1}{2}v^2 Cd \\
+-\frac{1}{2}v^2 \rho Cd \\
 0 
 \end{bmatrix}
 +
