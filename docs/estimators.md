@@ -24,10 +24,38 @@ Different generative dynamics models are derived:
 #### Basic Kinematics
 
 #### Fixed Wing
-The fixed wing generative dynamics model is the same as the one derived in [modeling](./modeling.md), but it has different noise, and no control vector. This is because we are assuming that the estimator does not know the control inputs of the aircraft. Because of this, the control input uncertainty needs to be included in the model noise. 
+The fixed wing generative dynamics model is the same as the one derived in [modeling](./modeling.md), but it has different noise, and no control vector. This is because we are assuming that the estimator does not know the control inputs of the aircraft. Because of this, the control input uncertainty needs to be included in the model noise. As a reminder, wind noise is affecting the positional dynamics, and control is affecting the rate dynamics.
+
+The wind noise is generated from a ____________, which is not intuitive to implement here. Instead, the upper and lower bounds are used to create a uniform distribution so that the particles will be generated in all possible spots. 
+
+The control noise is easier because we know how the controls are generated. These distributions are used, but scenarios where we don't know this noise can be looked at by replacing these distributions. We also know that there is no $w$ dynamics noise, so it is set to zero, but can be changed to look at the affect of estimator errors.
+
+$$
+w = 
+\begin{bmatrix}
+\mathcal{U}[-2,2] \\
+\mathcal{U}[-2,2] \\
+\mathcal{N}(0, 3.0) \text{deg} \\
+\mathcal{N}(1, 3.0) \text{m/s} \\
+0.0
+\end{bmatrix}
+$$
 
 #### Multirotor
 The multirotor generative dynamics model is the same as the one derived in [modeling](./modeling.md), but it has different noise, and no control vector. This is because we are assuming that the estimator does not know the control inputs of the aircraft. Because of this, the control input uncertainty needs to be included in the model noise. 
+
+Becuasae the multirotor is the same model as the fixed wind except for the control noise, the above noise needs to only be slightly modified for the controls.
+
+$$
+w = 
+\begin{bmatrix}
+\mathcal{U}[-2,2] \\
+\mathcal{U}[-2,2] \\
+0.98\mathcal{N}(0, 3.0) +  0.01\mathcal{N}(90, 1.0) + 0.01\mathcal{N}(-90, 1.0) \hspace{1cm} \text{[deg/s]} \\
+\mathcal{N}(1, 3.0) \hspace{1cm} \text{[m/s/s]} \\
+0.0
+\end{bmatrix}
+$$
 
 
 ### Likelihood Function
