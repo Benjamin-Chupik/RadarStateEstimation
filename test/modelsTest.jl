@@ -2,7 +2,7 @@ using RadarStateEstimation
 using RadarStateEstimation.problemStruct # This exports Parmas
 import RadarStateEstimation.models.fixedWing as physMod
 import RadarStateEstimation.models.radar as radMod
-
+using LaTeXStrings
 using Distributions
 
 
@@ -58,7 +58,11 @@ display(plot(pList[1], pList[2], pList[3], layout = (3, 1), title = "Measurement
 
 
 wMat = stack(w_list, dims=1)
-p = plot(params.ks, wMat[2:end, 1])
+p = plot(params.ks, wMat[2:end, 1], label=L"$\dot{x}$ wind")
+plot!(p, params.ks, wMat[2:end, 2], label=L"$\dot{z}$ wind")
+title!(p, "w")
+xlabel!(p, "k")
+ylabel!(p, "wind speed (m/s)")
 display(p)
 
 x_fromy = RadarStateEstimation.models.radar.y2p(y_list, radar)

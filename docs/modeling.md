@@ -7,8 +7,8 @@ There are 2 main dynamics models, the object models which include physical objec
 ### Fixed Wing 
 The goal of the fixed wing model is to generate a smooth trajectory that has maneuvers in it. It should look like a plausible trajectory for a fixed wing aircraft. This means no sudden turns, the velocity should always stay above some value $v_{min}$, and it should look like it is gliding. Most importantly, it should have some random noise included into the model to make the resulting trajectory interesting. This can be accomplished many ways, some of which are described bellow. 
 
-#### Dubens lite
-This method takes inspiration from dubens aircraft model, but makes some simplifications to make it more intuitive. 
+#### Dubins lite
+This method takes inspiration from dubins aircraft model, but makes some simplifications to make it more intuitive. 
 
 $$
 x = 
@@ -56,11 +56,11 @@ dv \\
 \end{bmatrix}
 $$
 
-The model controls $\alpha$ rate instead of $\omega$ rate because if omega is controlled then a control law is needed to make it stable and the trajectories were less like a real aircraft. 
+The model controls the $\alpha$ rate instead of $\omega$ rate because if omega is controlled then a control law is needed to make it stable and the trajectories were less like a real aircraft. 
 
 This is a non-linear model that must be integrated using some numeric integrator. We use RK45 for this purpose. The control vector and noise vector are fixed for each $k$ to $k+1$ allowing for easier integration and control of the aircraft. 
 
-The control vector is generated randomly each time step from the following distribution. Although this is not how a pilot would think about controlling an aircraft (they have a goal in mind and are smooth on controls execution), it still gives reasonably interesting trajectories to Annalise. 
+The control vector is generated randomly each time step from the following distribution. Although this is not how a pilot would think about controlling an aircraft (they have a goal in mind and are smooth on controls execution), it still gives reasonably interesting trajectories to analyze. 
 
 $$
 u = 
@@ -80,20 +80,20 @@ This model generates pseudorandom trajectories, one of which is:
 
 This is a realistic looking aircraft trajectory with the pilot ascending up and then curving down. The specific parameters may be tuned to give slightly different behavior, but the general shapes of the trajectories generated will stay the same. 
 
-#### Model Noise (w)
-The model noise mainly takes into account wind affects. To keep the model simple, the wind affects the change in x and z states. The wind is modeled as colored noise because the wind changes directions slowly and is not white. More specific, its model as a first order autoregressive function. An example generation of wind noise is as follows: 
+#### Process Noise (w)
+The process noise mainly takes into account wind effects. To keep the model simple, the wind affects the rate of change in x and z states. The wind is modeled as colored noise because the wind changes directions slowly and is not white. More specific, its model as a first order autoregressive function that is slightly damped:
+$$w_{k+1} = 0.9w_k+\begin{bmatrix}\mathcal{N}(0, 0.5)\\ \mathcal{N}(0, 0.5)\end{bmatrix}$$
+An example generation of wind noise is as follows: 
 
-============================
-Add wind noise example here
-============================
+![Fixed Wing Example Path](./figures/windnoise.svg)
 
-Note: The wind is held constant for a time step. 
+Note: The wind is held constant for a time step and since it is added to $\dot{x}$ and $\dot{z}$, is present in the integration step.
 
 
-### Multirotor - Dubens lite
+### Multirotor - Dubins lite
 The goal of the Multirotor model is to generate a smooth trajectory that has general maneuvers in it, and some multirotor specific maneuvers. It should look like a plausible trajectory for a multirotor aircraft. This trajectory should look similar to the fixed wing model for most of the time, but should allow for occasional sharp turns, and lowering the velocity to zero.
 
-This is accomplished by using the same model as the Fixed Wing Dubens Lite model, but without a velocity restriction and with a different control input PDF. This control PDF has a small amount of probability density at high $d\alpha$ so that about 1-5% of the time it takes a sharp turn. 
+This is accomplished by using the same model as the Fixed Wing Dubins Lite model, but without a velocity restriction and with a different control input PDF. This control PDF has a small amount of probability density at high $d\alpha$ so that about 1-5% of the time it takes a sharp turn. 
 
 $$
 u = 

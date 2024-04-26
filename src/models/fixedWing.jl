@@ -132,7 +132,7 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
 
     """
     muwind = [0, 0]
-    covwind = 10*I
+    covwind = 0.5*I
     Wind = MvNormal(muwind, covwind)
     
     muU = [0, 25]
