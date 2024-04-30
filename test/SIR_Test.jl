@@ -1,5 +1,8 @@
 using RadarStateEstimation
 using RadarStateEstimation.problemStruct # This exports Parmas
+using RadarStateEstimation.estimators.SIR
+import RadarStateEstimation.models.fixedWing as physMod
+import RadarStateEstimation.models.radar as radMod
 
 using Distributions
 using Plots
@@ -13,19 +16,19 @@ This will test the SIR Particle filter with the fixed wing dynamics to see if it
 # Dynamics and measurement Generation
 #--------------------------------------------  
 # Dynamics
-Cd = 0.1
-params = Params(.5, 100.0, Cd, 0.1)
-x0 = [50.0, 50.0, 0.4, 20.0]
-x_list, u_list = RadarStateEstimation.models.fixedWing.genTrajectory(x0, params)
+Cd = .1
+params = Params(.5, 100.0, Cd, 1.0)
+x0 = [0.0, 50.0, 0.0, 25.0, 0.0] # [x, z, alpha, v, w]
+x_list, u_list, w_list = physMod.genTrajectory(x0, params)
 
 # Measurements
-rNoise = Chisq(4)
+rNoise = Chisq(1)
 rdNoise = Normal(0,.2)
 elNoise = Normal(0.0, deg2rad(2))
 
-radar = RadarStateEstimation.models.radar.Radar([50.0,0.0], rNoise, rdNoise, elNoise)
-y_list = RadarStateEstimation.models.radar.radarMeasure(x_list, radar)
-y_list_noNoise = RadarStateEstimation.models.radar.radarMeasure_noNoise(x_list, radar)
+radar = radMod.Radar([50.0,0.0], rNoise, rdNoise, elNoise)
+y_list = radMod.radarMeasure(x_list, radar)
+y_list_noNoise = radMod.radarMeasure_noNoise(x_list, radar)
 
 xMat = stack(x_list, dims=1)
 yMat = stack(y_list, dims=1)
@@ -37,8 +40,8 @@ yMat_noNoise = stack(y_list_noNoise, dims=1)
 #-------------------------------------------- 
 # Other setup
 Ns = 5000 # Number of prticles to use
-dynamUp(x::Vector{Float64}, u::Vector{Float64}, dt::Float64) = RadarStateEstimation.models.fixedWing.simulate(x, u, params)
-pygx(y::Vector{Float64}, x::Vector{Float64}) = RadarStateEstimation.models.radar.likelihood(y, x, radar)
+dynamUp(x::Vector{Float64}, dt::Float64) = SIR.dynamicsUpdate(x, params)
+pygx(y::Vector{Float64}, x::Vector{Float64}) = radMod.likelihood(y, x, radar)
 
 # Set up initial state particles
 x0s = Vector{Vector{Float64}}()
@@ -46,50 +49,26 @@ dx = 10
 dz = 10
 dα = deg2rad(10)
 dv = 3
+dw = 0
 for i in 1:Ns
-    x = Vector{Float64}(undef, 4)
+    x = Vector{Float64}(undef, 5)
     x[1] = rand(Uniform(x0[1]-dx, x0[1]+dx)) # x
     x[2] = rand(Uniform(x0[2]-dz, x0[2]+dz)) # z
     x[3] = rand(Uniform(x0[3]-dα, x0[3]+dα)) # α
     x[4] = rand(Uniform(x0[4]-dv, x0[4]+dv)) # v
+    x[5] = 0.0 # w
     push!(x0s, x)
 end
 
+w0s = ones(Ns)./Ns # Initial weights (uniform)
 
-pfMeanList = Vector{Vector{Float64}}()
-pfSTDList = Vector{Vector{Float64}}()
+pflt = plot(title = "Particle Filter Test")
 
-xPartList = RadarStateEstimation.estimators.SIR.SIR_update(x0s, u_list, Ns, y_list, params, dynamUp, pygx)
-
-for k in params.ks
-
-    # Get point estimate
-    xMean, xSTD = RadarStateEstimation.estimators.SIR.MMSE(xPartList[k])
-    push!(pfMeanList, xMean)
-    push!(pfSTDList, xSTD)
+xk = deepcopy(x0s)
+for y in y_list
+    SIR.SIR_update!(xk, w0s, y, params, dynamUp, pygx)
+    scatter!(SIR.MMSE(xk))
+    display(pflt)
 end
-
-
-xPfMat = stack(pfMeanList, dims=1)
-xPfSTDMat = stack(pfSTDList, dims=1)
-
-plot(title="Particle Filter Test", xlabel="x", ylabel= "z")
-scatter(xMat[:,1], xMat[:,2], label = "Exact Postion")
-display(scatter!(xPfMat[:,1], xPfMat[:,2], label = "PF"))
-
-
-p = plot(title = "Dynamics testing")
-xnames = ["x", "z", "α", "V"]
-pList = []
-for i in 1:4
-    p_temp = scatter(params.ks, xMat[:,i], xlabel = "k", ylabel = xnames[i])
-    scatter!(params.ks, xPfMat[:,i], yerr=xPfSTDMat[:, i], label = "PF")
-    push!(pList, p_temp)
-end
-display(plot(pList[1], pList[2], pList[3], pList[4], layout = (length(pList), 1) , title = "Dynamics testing", size=(800,800)))
-
-
-
-
 
 

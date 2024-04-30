@@ -2,51 +2,66 @@ module SIR
 
 using StatsBase
 using RadarStateEstimation.problemStruct
+using Distributions: Normal, Uniform
+using DifferentialEquations: ODEProblem, solve, Tsit5
 
-function SIR_update(x0::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}, Ns::Int64, y_list::Vector{Vector{Float64}}, params::Params, dynamUp::Function, pygx::Function)
+function SIR_update(x0::Vector{Vector{Float64}}, wk::Vector{Float64}, ys::Vector{Vector{Float64}}, params::Params, dynamUp::Function, pygx::Function)
     """
-    Runs the Sample Importance Resample Particle Filter
-    Inputs:
-        x0: List of sampled initial state vectors. Needs to be of size Ns of states
-        Ns: Number of particles to use each time
-        y_list: List of y measurement vectors
-        params: Problem Parameters
+    Note: Gives warnings, not sure if it works? :/
+    Updates the particls list xk to propogate dynamcs, and take the measurements into account
+    Inputs
+        xk: particles
+        wk: Particle weights NOTE: should allways be 1 for SIR
+        ys: list of measurement vector received at k+1 (ys[1] should correspond to the next k, not the k for the inputed x0)
+        params: Problem Parameters (Struct)
+        dynamUp: Dynamics update function. Takes in (x, dt) outputs x (should include noise)
+        pygx: Function to return the probablity of yk gven xk (y, x) -> float (should include noise)
+    Outputs:
+        xk: the xs for the final measurement. 
+    """
+
+    xk = deepcopy(x0)
+
+    for y in ys
+        SIR_update!(xk, wk, y, params, dynamUp, pygx)
+    end
+
+    return xk
+end
+
+
+function SIR_update!(xk::Vector{Vector{Float64}}, wk::Vector{Float64}, y::Vector{Float64}, params::Params, dynamUp::Function, pygx::Function)
+    """
+    Updates the particls list xk to propogate dynamcs, and take the measurement into account
+    Inputs
+        xk: particles (updated)
+        wk: Particle weights (updated) NOTE: should allways be 1 for SIR
+        y: measurement vector received at k+1
+        params: Problem Parameters (Struct)
         dynamUp: Dynamics update function. Takes in (x, dt) outputs x (should include noise)
         pygx: Function to return the probablity of yk gven xk (y, x) -> float (should include noise)
     """
 
-    X = Vector{Vector{Vector{Float64}}}()
-    push!(X, deepcopy(x0))
-    x_kp1 = deepcopy(x0)
-    
-    w_kp1 = Vector{Float64}(undef, Ns) # Preallocate Weights for next particles
-    # Go through every measurement
-    for y_id in 2:length(y_list) # start at 2nd measuremnt becuase asssume first is for x0
-        y = y_list[y_id]
-        u = u_list[y_id-1]
-        # For every particle, do SIS
-        for i in 1:Ns
-            x_kp1[i] = dynamUp(X[end][i], u, params.dt) # Popagate the dynamics
-            w_kp1[i] = pygx(y, x_kp1[i]) # Get the measurement likelihood
-        end
+    Ns = length(wk)
 
-        # normalize weights (Still part of SIS)
-        w_kp1 = w_kp1./sum(w_kp1)
-        
-        # SIR resampling
-        if y != y_list[end] # Dont resample on the last one so weights make sence
-            # Resample
-            w_temp = Weights(w_kp1)
-            x_kp1 = sample(x_kp1, w_temp , Ns)
-        end
-        push!(X, deepcopy(x_kp1))
-        # Move Data for next k and measurement
-        # x_k .= x_kp1
+    for i in 1:Ns
+        xk[i] .= dynamUp(xk[i], params.dt) # Popagate the dynamics
+        wk[i] = pygx(y, xk[i]) # Get the measurement likelihood
     end
 
-    return X # returns the list of particles (They all have the same weight)
+    # normalize weights (Still part of SIS)
+    wk .= wk./sum(wk)
+
+    # Resample
+    xk .= sample(xk, Weights(wk) , Ns)
+
+    return nothing
 end
 
+
+############################################
+# Point Estimators from Particles
+############################################
 
 function MMSE(xParticleList::Vector{Vector{Float64}})
     """
@@ -59,4 +74,70 @@ function MMSE(xParticleList::Vector{Vector{Float64}})
 
 end
 
+############################################
+# Models for motion
+############################################
+
+function dynamicsUpdate(xk, params::Params)
+    """
+    Update the dynamics of a particle. 
+    NOTE: ParticleFilters.jl is similar format ish.
+    Inputs:
+        x: the state vector
+        dt: change in time
+    """
+
+    # Dynamics
+    function fixedWingEOM(dx_vec, x_vec, p_vec, t)
+        # x_vec: [x, y, α, v, w]
+        # p_vec: Parameters vector: [noise (vector), Cd, rho]
+    
+        # Unpacking
+        x = x_vec[1]
+        y = x_vec[2]
+        α = x_vec[3]
+        v = x_vec[4]
+        w = x_vec[5]
+    
+        noise = p_vec[1]
+        Cd = p_vec[2]
+        rho = p_vec[3]
+
+        # Dyncamics Propogation
+        dx_vec[1] = v*cos(α)
+        dx_vec[2] = v*sin(α)
+        dx_vec[3] = w
+        dx_vec[4] = -0.5*v^2*Cd*rho
+        dx_vec[5] = 0 # no rotational drag
+
+        # NOise
+        dx_vec[1] += noise[1]
+        dx_vec[2] += noise[2]
+        dx_vec[3] += noise[3]
+        dx_vec[4] += noise[4]
+        dx_vec[5] += noise[5]
+    end
+
+    # Noise
+    w = [   Uniform(-.001, .001), # x_dot uncertianty (from wind)
+            Uniform(-.001, .001), # z_dot uncertainty (from wind)
+            Normal(deg2rad(0), deg2rad(2.0)), # alpha_dot uncertainty (from controls)
+            Normal(25, 5), # v_dot uncertainty (from controls)
+            0.0 # w_dot uncertainty (not used)
+        ]
+    
+    # Generate random number:
+    w_samp = rand.(w[1:end-1])
+    push!(w_samp, 0.0)
+
+    # Setup ODE 
+    tspan = (0.0, params.dt) # dosent matter what time it starts on , just integrate for the dt time
+    prob = ODEProblem(fixedWingEOM, xk, tspan, [ w_samp, params.Cd, params.ρ])
+    
+    # TODO: make sure that end is actually the time dt, if not need to poll at t=dt for correct position
+    xkp1 = solve(prob, Tsit5())[end] # only the last time step (if you dont do this it is a solution object that is weird)
+
+    return xkp1
 end
+end
+

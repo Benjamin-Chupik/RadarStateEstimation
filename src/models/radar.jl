@@ -15,7 +15,7 @@ export Radar
 
 using LinearAlgebra: dot, norm
 using Printf
-using Distributions: MixtureModel, Normal, UnivariateDistribution
+using Distributions: MixtureModel, Normal, UnivariateDistribution, pdf
 
 #--------------------------------------------  
 # Data Structures
@@ -175,7 +175,7 @@ function likelihood(y::Vector{Float64}, x::Vector{Float64}, radar::Radar)
     Λ[1] = pdf(radar.elNoise, y[1] - y_measure[1]) # el
     Λ[2] = pdf(radar.rNoise, y[2] - y_measure[2]) # r
     Λ[3] = pdf(radar.rdNoise, y[3] - y_measure[3]) # rdot
-    return prod(Λ)
+    return prod(Λ)::Float64
 
 end
 

@@ -6,8 +6,10 @@ using LinearAlgebra
 using RadarStateEstimation.problemStruct
 using RadarStateEstimation.models.radar
 
-#include("../models/radarMeasurement.jl")
 
+############################################################
+# Physics Model
+############################################################
 function fixedWingEOM(dx_vec, x_vec, p_vec, t)
     # x_vec: [x, y, α, v, w]
     # p_vec: Parameters vector: [uα, uv, wx, wz, Cd, rho]
@@ -51,55 +53,6 @@ function fixedWingEOM(dx_vec, x_vec, p_vec, t)
    
 end
 
-function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
-    α  = xk[3]
-    v = xk[4]
-    A = [0 0 -v*sin(α) cos(α) 0
-         0 0  v*cos(α) sin(α) 0
-         0 0 0 0 1
-         0 0 0 -v*params.Cd/params.ρ 0
-         0 0 0 0 0]
-    return A
-end
-
-function fixedWingMeasDer(xk::Vector{Float64}, radar::Radar)
-
-    xr, zr = radar.p
-
-    x = xk[1]
-    z = xk[2]
-    α = xk[3]
-    v = xk[4]
-    e = atan(z-zr, x-xr)
-
-
-    drdx = (x-xr)/sqrt((x-xr)^2+(z-zr)^2)
-    drdz = (z-zr)/sqrt((x-xr)^2+(z-zr)^2)
-
-    dedx = -(z-zr)/((x-xr)^2+(z-zr)^2)
-    dedz = (x-xr)/((x-xr)^2+(z-zr)^2)
-
-    drddv = cos(α-e)
-    drddα = -v*sin(α-e)
-    drddx = -v*sin(α-e)*-dedx
-    drddz = -v*sin(α-e)*-dedz
-
-    H = zeros(3,length(xk))
-
-    H[1,1] = dedx
-    H[1,2] = dedz
-
-    H[2,1] = drdx
-    H[2,2] = drdz
-
-    H[3,1] = drddx
-    H[3,2] = drddz
-    H[3,3] = drddα
-    H[3,4] = drddv
-
-    return H
-end
-
 function simulate(xk::Vector{Float64}, u::Vector{Float64}, w::Vector{Float64}, params::Params)
     """
     Simulates the dynamics simulate the dynamics one k forward in time using numeric integration. 
@@ -119,7 +72,6 @@ function simulate(xk::Vector{Float64}, u::Vector{Float64}, w::Vector{Float64}, p
 
     return xkp1
 end
-
 
 function genTrajectory(x0::Vector{Float64}, params::Params)
     """
@@ -167,5 +119,57 @@ function genTrajectory(x0::Vector{Float64}, params::Params)
     return x_list::Vector{Vector{Float64}}, u_list::Vector{Vector{Float64}}, w_list::Vector{Vector{Float64}}
 end
 
+############################################################
+# Estimator Stuff
+############################################################
+function fixedWingLinDyn(xk::Vector{Float64}, params::Params)
+    # This is used for the UKF where it requires linearized dynamics around a given state.
+    α  = xk[3]
+    v = xk[4]
+    A = [0 0 -v*sin(α) cos(α) 0
+         0 0  v*cos(α) sin(α) 0
+         0 0 0 0 1
+         0 0 0 -v*params.Cd/params.ρ 0
+         0 0 0 0 0]
+    return A
+end
+
+function fixedWingMeasDer(xk::Vector{Float64}, radar::Radar)
+
+    xr, zr = radar.p
+
+    x = xk[1]
+    z = xk[2]
+    α = xk[3]
+    v = xk[4]
+    e = atan(z-zr, x-xr)
+
+
+    drdx = (x-xr)/sqrt((x-xr)^2+(z-zr)^2)
+    drdz = (z-zr)/sqrt((x-xr)^2+(z-zr)^2)
+
+    dedx = -(z-zr)/((x-xr)^2+(z-zr)^2)
+    dedz = (x-xr)/((x-xr)^2+(z-zr)^2)
+
+    drddv = cos(α-e)
+    drddα = -v*sin(α-e)
+    drddx = -v*sin(α-e)*-dedx
+    drddz = -v*sin(α-e)*-dedz
+
+    H = zeros(3,length(xk))
+
+    H[1,1] = dedx
+    H[1,2] = dedz
+
+    H[2,1] = drdx
+    H[2,2] = drdz
+
+    H[3,1] = drddx
+    H[3,2] = drddz
+    H[3,3] = drddα
+    H[3,4] = drddv
+
+    return H
+end
 
 end

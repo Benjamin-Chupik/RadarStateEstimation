@@ -31,6 +31,10 @@ The wind noise is generated from a ____________, which is not intuitive to imple
 The control noise is easier because we know how the controls are generated. These distributions are used, but scenarios where we don't know this noise can be looked at by replacing these distributions. We also know that there is no $w$ dynamics noise, so it is set to zero, but can be changed to look at the affect of estimator errors.
 
 $$
+u = 0
+$$
+
+$$
 w = 
 \begin{bmatrix}
 \mathcal{U}[-2,2] \\
@@ -45,6 +49,10 @@ $$
 The multirotor generative dynamics model is the same as the one derived in [modeling](./modeling.md), but it has different noise, and no control vector. This is because we are assuming that the estimator does not know the control inputs of the aircraft. Because of this, the control input uncertainty needs to be included in the model noise. 
 
 Becuasae the multirotor is the same model as the fixed wind except for the control noise, the above noise needs to only be slightly modified for the controls.
+
+$$
+u = 0
+$$
 
 $$
 w = 

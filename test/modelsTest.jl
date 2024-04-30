@@ -1,5 +1,6 @@
 using RadarStateEstimation
 using RadarStateEstimation.problemStruct # This exports Parmas
+#import RadarStateEstimation.models.fixedWing as physMod
 import RadarStateEstimation.models.fixedWing as physMod
 import RadarStateEstimation.models.radar as radMod
 using LaTeXStrings
@@ -54,7 +55,7 @@ for i in 1:3
     plot!(params.ks, yMat_noNoise[2:end,i])
     push!(pList, p_temp)
 end
-display(plot(pList[1], pList[2], pList[3], layout = (3, 1), title = "Measurement testing", size=(400,800)))
+display(plot(pList[1], pList[2], pList[3], layout = (3, 1), title = "Measurement Values", size=(400,800)))
 
 
 wMat = stack(w_list, dims=1)
@@ -67,7 +68,9 @@ display(p)
 
 x_fromy = RadarStateEstimation.models.radar.y2p(y_list, radar)
 x_fromy_mat = stack(x_fromy, dims=1)
-
-p = plot(xMat[:,1], xMat[:,2], label = "Exact Position", aspect_ratio=:equal)
+p = plot(ylabel="z [m]", xlabel = "x [m]", title = "MultiRotor Dynamics Example")
+#scatter!(x_fromy_mat[:,1], x_fromy_mat[:,2], label = "Position from measurements")
+plot!(xMat[:,1], xMat[:,2], linewidth=4, label = "Exact Position", aspect_ratio=:equal)
+#scatter!([radar.p[1]], [radar.p[2]] , label = "Radar")
 display(p)
 
