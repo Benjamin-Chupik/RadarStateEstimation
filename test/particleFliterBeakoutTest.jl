@@ -78,7 +78,7 @@ function generalFlyingEOM(dx_vec::Vector{Float64}, x_vec::Vector{Float64}, p_vec
     dx_vec[2] = v*sin(α)
     dx_vec[3] = w
     dx_vec[4] = -0.5*v^2*Cd*rho
-    dx_vec[5] = 0 # No rotational drag
+    dx_vec[5] = 0.0 # No rotational drag
 
     # Noise
 	dx_vec[1] += noise[1]
@@ -122,6 +122,15 @@ end
 # Quick test
 dynamicsUpdate([50.0,0,0,25,0], [[0.0],[0.0],[0.0],[0.0],[0.0]], generalFlyingEOM, params)
 
+# ╔═╡ 2a8c5fb5-91ae-495b-8e59-9b4b7d68b9ad
+fixedWingNoise = [
+		Normal(0.0, 1.0), # x_dot (from wind)
+		Normal(0.0, 1.0), # z_dot (from wind))
+		Normal(0.0, deg2rad(0.1)), # α_dot (From control inputs)
+		Normal(25.0, 0.5), # v_dot (From control inputs)
+		[0.0] # ω_dot
+	]
+
 # ╔═╡ b9e77b29-b8a3-42e7-a65c-b2089cab27f1
 function genFixedWingTrajectory(x0::Vector{Float64}, params::Params)
 	"""
@@ -129,13 +138,7 @@ function genFixedWingTrajectory(x0::Vector{Float64}, params::Params)
 	Returns a trajectory starting at x0 which is k=0 in matrix form. (k is first axis)
 	Holds noise constant throught a time step
 	"""
-	noise = [
-		Normal(0.0, 0.5), # x_dot (from wind)
-		Normal(0.0, 0.5), # z_dot (from wind))
-		Normal(0.0, deg2rad(4.0)), # α_dot (From control inputs)
-		Normal(25.0, 5.0), # v_dot (From control inputs)
-		[0.0] # ω_dot
-	]
+	noise = fixedWingNoise
 
 	# Preallocate a storage vector
 	xks = Vector{Vector{Float64}}() 
@@ -184,7 +187,7 @@ end
 # ╔═╡ acff5813-d9b7-493e-86e2-9aac64730746
 # Multirotor dynamics test
 begin
-	x0 = [0.0,50.0,0,25,0] # example start point for common comparison
+	x0 = [0.0,50.0,0.0,25.0,0.0] # example start point for common comparison
 	fixedWingTrajectory = genFixedWingTrajectory(x0, params);
 	multirotorTrajectory = genMultirotorTrajectory(x0, params);
 	plot_traject = plot(fixedWingTrajectory[:,1], fixedWingTrajectory[:,2], xlabel= "x [m]", ylabel="z [m]", title = "Example Trajectorys", legend = true, label = "Fixed Wing")
@@ -204,7 +207,7 @@ function radarMeasure(x::Vector{Float64}, p::Vector{Float64}, noise)
     Simulates a radar measuring a object flying through space. Only returns the measured center of mass of the object. 
 
     Inputs:
-        x: the state of the aircraft. [x, y, α, v]
+        x: the state of the aircraft. [x, y, α, v, w]
 		p: Radar position [x,z] in meters from global frame
 		noise: noise vector for the measurements [el, r, rd]. Should be samplable by rand()
     Outputs:
@@ -292,11 +295,11 @@ end
 # ╔═╡ f135cad6-3221-4e33-8324-8610d3c196bf
 begin
 	# Measurement test
-	radar_p = [50.0,0.0]
+	radar_p = [200.0,0.0]
 	radar_noise = [ # all of these need to be distribution so pdf works for measure likelihood
-		Normal(0.0, deg2rad(4)), # el
-		Normal(0,1), # r
-		Normal(0,.5) # rd
+		Normal(0.0, deg2rad(0.001)), # el
+		Normal(0,0.1), # r
+		Normal(0, 1.0) # rd
 	]
 	# Generate Measurements
 	fixedWingTrajectoryMeasurements = radarMeasure(fixedWingTrajectory, radar_p, radar_noise)
@@ -357,14 +360,8 @@ function particlePropFixedWing(xk::Vector{Float64}, params::Params)
 	Uses dynamics for a fixed wing.
 	Returns the next x
 	"""
-	noise = [
-		Normal(0.0, 0.5), # x_dot (from wind)
-		Normal(0.0, 0.5), # z_dot (from wind))
-		Normal(0.0, deg2rad(4.0)), # α_dot (From control inputs)
-		Normal(25.0, 5.0), # v_dot (From control inputs)
-		[0.0] # ω_dot
-	]
-
+	noise = fixedWingNoise
+	
 	# Propogate dynamics using the updator
 	xkp1 = dynamicsUpdate(xk, noise, generalFlyingEOM, params)
 
@@ -375,6 +372,9 @@ end
 begin
 	@bind id_test Slider(params.ks[1:end])
 end
+
+# ╔═╡ 5ee73c3b-c93a-48a8-a586-8602059a4c5d
+@show id_test
 
 # ╔═╡ c59efcae-6bcc-43d4-b757-bee894b73025
 # Test particle propogation dynamics and randomness
@@ -432,16 +432,13 @@ begin
 	end
 end
 
-# ╔═╡ ca6e6fe8-8b4d-4af9-b380-1670f4fa472c
-radar_noise_large = [ # all of these need to be distribution so pdf works for measure likelihood
-		Normal(0.0, deg2rad(16)), # el
-		Normal(0,5), # r
-		Normal(0,4) # rd
-	]
-
 # ╔═╡ 739c3ec6-e870-4773-be80-d53d2916aab0
-# test thte likelihood with the previously generated particles
+# test thte likelihood with a grid around the next k point and a generated y
+
 begin
+	# Generate a grid of x points around id_test+1
+	
+	
  	#generate measurement likelihoods
 	fixedWingParticlesLikelihood = radarMeasureLikelihood(
 		fixedWingTrajectoryMeasurements[id_test+1,:], 
@@ -460,60 +457,108 @@ begin
 	
 end
 
-# ╔═╡ 15408539-871e-4991-be26-24cb100b5c66
-# The particle filter (Broken out into steps for plotting and gif making)
+# ╔═╡ 38d40c3b-fa90-4755-b04f-711412e346ac
+
+@printf("%f particles depleted out of %f", count(x -> x < .1, fixedWingParticlesLikelihood), np)
+
+# ╔═╡ b9755758-af98-4725-a8ea-2b57213d0c0e
+# Plot particles individual states
+
 begin
+	# plot results states
+	
+	#make the list a matrix for easy plotting
+	stateList = ["x", "z", "α", "V", "w"]
+	
+	pfstateGenPlots = []
+	for ix = 1:5
+		pTemp = scatter(xkp1_particles_ex[:,ix], color = fixedWingParticlesLikelihood, marker_z = fixedWingParticlesLikelihood, colorbar = true, cmap = :viridis, title = "Particle Gen $(stateList[ix]) State", label="Dynamics Gen w Likelihood")
+		hline!(pTemp, [fixedWingTrajectory[id_test,ix]], label = "Start Val")
+		hline!(pTemp, [fixedWingTrajectory[id_test+1,ix]], label = "End Val")
+		push!(pfstateGenPlots, pTemp)
+	end
+	
+	plot(pfstateGenPlots[1], pfstateGenPlots[2], pfstateGenPlots[3], pfstateGenPlots[4], pfstateGenPlots[5], layout=(5,1), size=(800,1200), legend = true)
+end
+
+# ╔═╡ 04724311-3fac-4b26-b7b4-9fd89b3bcbdd
+radar_noise_larger = [ # all of these need to be distribution so pdf works for measure likelihood
+		Normal(0.0, deg2rad(1.0)), # el
+		Normal(0,10.0), # r
+		Normal(0, 30.0) # rd
+	]
+
+# ╔═╡ 15408539-871e-4991-be26-24cb100b5c66
+# The particle filter
+begin
+function pf(nP, ypf)
 	# starts at trajectory[1] which is x0 which is k=1, the measurement measure[1] is pretended to not exist for consistancy with literature. 
-	nP = 100 # number of particles
+	#np:  number of particles
+	# ypf: the measurements for the pf (k=k when compared to x)
+	
 	pks = [] # this stors matrixes of particles for every k
 	wks = [] # this stores vectors of weights for eveery k
 	nPdeplete = [] # this stores the number of particles with 0 weight every k
-	ypf = fixedWingTrajectoryMeasurements # the measurements for the pf (k=k when compared to x)
 	
 	# Initial particle generation
 	p_gen0 = [
-		Normal(x0[1], 1), # x
-		Normal(x0[2], 1), # z
-		Normal(x0[3], .001), # α
-		Normal(x0[4], 1), # v
-		Normal(x0[5], 1), # w
+		Normal(x0[1], 1.0), # x
+		Normal(x0[2], 1.0), # z
+		Normal(x0[3], deg2rad(1)), # α
+		Normal(x0[4], .1), # v
+		[0.0], # w
 	]
 	pxk = stack(rand.(p_gen0, nP), dims=2) # particles x state at time k
 	push!(pks, pxk)
 	wk = ones(nP)./nP # all same weight
-	
-	for k in params.ks[1:end-1] #update pf from state k to kp1
-		@printf("Starting k=%i step", k)
-		# make sure its a new thing and not changing whats stored in the list
-		pxkp1 = deepcopy(pxk) 
-		wkp1 = deepcopy(wk)
-		
-		# for every particle
-		for ip = 1:nP
-			# Dynamics Propogation
-			pxkp1[ip,:] .= particlePropFixedWing(pxk[ip,:], params)
-				
-			# Measurement Likelihood
-			wkp1[ip] = radarMeasureLikelihood(
-				ypf[k+1,:], # you are at the next measurement
-				pxkp1[ip,:], 
-				radar_p, radar_noise_large
-			)
-		end
-	
-		#Normalize weights
-		wkp1 .= wkp1./sum(wkp1)
-	
-		# Resample
-		sampIDXs = sample(1:nP, Weights(wkp1) , nP)
-		pxkp1 .= pxkp1[sampIDXs, :]
 
-		# Add to tracker
-		push!(pks, pxkp1)
-		push!(wks, wkp1)
-		push!(nPdeplete, count(x -> x < .0000001, wkp1))
+	try
+		for k in params.ks[1:end-1] #update pf from state k to kp1
+			@printf("Starting k=%i step\n", k)
+			# make sure its a new thing and not changing whats stored in the list
+			pxkp1 = deepcopy(pxk) 
+			wkp1 = deepcopy(wk)
+
+			@show ypf[k+1,:]
+			
+			# for every particle
+			for ip = 1:nP
+				# Dynamics Propogation
+				pxkp1[ip,:] .= particlePropFixedWing(pxk[ip,:], params)
+					
+				# Measurement Likelihood
+				wkp1[ip] = radarMeasureLikelihood(
+					ypf[k+1,:], # you are at the next measurement
+					pxkp1[ip,:], 
+					radar_p, radar_noise_larger
+				)
+			end
+		
+			#Normalize weights
+			wkp1 .= wkp1./sum(wkp1)
+		
+			# Resample
+			sampIDXs = sample(1:nP, Weights(wkp1) , nP)
+			pxkp1 .= pxkp1[sampIDXs, :]
 	
+			# Add to tracker
+			push!(pks, pxkp1)
+			push!(wks, wkp1)
+			push!(nPdeplete, count(x -> x < .0000001, wkp1))
+		
+		end
+	catch err
+		@show err
 	end
+	return pks, nPdeplete
+end
+end
+
+# ╔═╡ 446183a0-3e2e-419d-b1ee-21c8b3bdb9d8
+begin
+	# run the PF
+	nP = 1000
+	pks, nPdeplete = pf(nP, fixedWingTrajectoryMeasurements)
 end
 
 # ╔═╡ de73f537-f65b-4077-b0f0-05fb06301f2e
@@ -523,11 +568,13 @@ begin
 	#make the list a matrix for easy plotting
 	pksMat = stack(pks, dims=1)
 	@show size(pksMat)
-	stateList = ["x", "z", "α", "V", "w"]
+	nPlotPOints = size(pksMat)[1]
+	#stateList = ["x", "z", "α", "V", "w"] #Definded before
 	
 	pfstatePlots = []
 	for ix = 1:5
-		pTemp = plot(pksMat[:,:,ix], title = "PF state $(stateList[ix])", xlabel = "k")
+		pTemp = scatter(pksMat[:,:,ix], title = "PF state $(stateList[ix])", xlabel = "k", color=:blue, label = "PF")
+		scatter!(fixedWingTrajectory[1:nPlotPOints, ix], color=:red, label = "true")
 		push!(pfstatePlots, pTemp)
 	end
 	
@@ -536,9 +583,13 @@ end
 
 # ╔═╡ 4bcfd687-ac71-497c-8bf5-a1b12e064864
 begin
-	plot(100*nPdeplete./nP, title="Precent particles depeted", xlabel="k")
+	pdepleetPrecent = 100*nPdeplete./nP
+	plot(pdepleetPrecent, title="Precent particles depeted", xlabel="k")
 
 end
+
+# ╔═╡ 5491b666-0e80-4a68-b862-2549e617d8f0
+@show pdepleetPrecent
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2733,6 +2784,7 @@ version = "1.4.1+1"
 # ╠═2c1c1b80-c271-4492-9207-be6226bca309
 # ╠═2ea40eca-f6f4-4d39-8e7d-38ba33d42c9e
 # ╠═027c35b8-50e8-4c08-b3cc-68d1fe224f8f
+# ╠═2a8c5fb5-91ae-495b-8e59-9b4b7d68b9ad
 # ╠═b9e77b29-b8a3-42e7-a65c-b2089cab27f1
 # ╠═a0af293e-7e06-4fad-a9b1-1a6fa9ed489a
 # ╠═acff5813-d9b7-493e-86e2-9aac64730746
@@ -2750,12 +2802,17 @@ version = "1.4.1+1"
 # ╠═b3cf4446-607e-4d6c-b7bb-239bdb6db13a
 # ╠═b3780178-2093-462a-af0a-ea86dbc33d90
 # ╠═e52f3082-e9a4-4ddd-8929-b4833c247181
+# ╠═5ee73c3b-c93a-48a8-a586-8602059a4c5d
 # ╠═c59efcae-6bcc-43d4-b757-bee894b73025
 # ╠═c4dfeab9-0bd0-4a97-83c3-b79c099e1242
-# ╠═ca6e6fe8-8b4d-4af9-b380-1670f4fa472c
 # ╠═739c3ec6-e870-4773-be80-d53d2916aab0
+# ╠═38d40c3b-fa90-4755-b04f-711412e346ac
+# ╠═b9755758-af98-4725-a8ea-2b57213d0c0e
+# ╠═04724311-3fac-4b26-b7b4-9fd89b3bcbdd
 # ╠═15408539-871e-4991-be26-24cb100b5c66
+# ╠═446183a0-3e2e-419d-b1ee-21c8b3bdb9d8
 # ╠═de73f537-f65b-4077-b0f0-05fb06301f2e
 # ╠═4bcfd687-ac71-497c-8bf5-a1b12e064864
+# ╠═5491b666-0e80-4a68-b862-2549e617d8f0
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
