@@ -28,8 +28,10 @@ np = 1000
 x_part = []
 p = plot(title = "Dynamics test", legend = false)
 
+x_look = vcat(x_look, w_list[idLook])
+
 for i = 1:np
-    predX =  SIR.dynamicsUpdate(x_look, params)
+    predX = SIR.dynamicsUpdate_NEW(x_look, params)
     push!(x_part,predX)
     scatter!(p, [predX[1]], [predX[2]], color = :blue)
 end

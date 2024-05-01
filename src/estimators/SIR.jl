@@ -1,8 +1,10 @@
 module SIR
 
+using LinearAlgebra
+
 using StatsBase
 using RadarStateEstimation.problemStruct
-using Distributions: Normal, Uniform
+using Distributions: Normal, Uniform, MvNormal
 using DifferentialEquations: ODEProblem, solve, Tsit5
 
 function SIR_update(x0::Vector{Vector{Float64}}, wk::Vector{Float64}, ys::Vector{Vector{Float64}}, params::Params, dynamUp::Function, pygx::Function)
@@ -139,5 +141,86 @@ function dynamicsUpdate(xk, params::Params)
 
     return xkp1
 end
-end
 
+
+function dynamicsUpdate_NEW(xk, params::Params)
+    """
+    Update the dynamics of a particle. 
+    NOTE: ParticleFilters.jl is similar format ish.
+    Inputs:
+        x: the state vector
+        dt: change in time
+    """
+
+    # Dynamics
+    function fixedWingEOM_NEW(dx_vec, x_vec, p_vec, t)
+        # x_vec: [x, y, α, v, w]
+        # p_vec: Parameters vector: [noise (vector), Cd, rho]
+    
+        # Unpacking
+        x = x_vec[1]
+        y = x_vec[2]
+        α = x_vec[3]
+        v = x_vec[4]
+        w = x_vec[5]
+        windx = x_vec[6]
+        windz = x_vec[7]
+
+        uα = p_vec[1]
+        uv = p_vec[2]
+
+        wx = p_vec[3]
+        wz = p_vec[4]
+
+        Cd = p_vec[5]
+        rho = p_vec[6]
+
+        # Dyncamics Propogation
+        dx_vec[1] = v*cos(α)
+        dx_vec[2] = v*sin(α)
+        dx_vec[3] = w
+        dx_vec[4] = -0.5*v^2*Cd*rho
+        dx_vec[5] = 0 # no rotational drag
+        dx_vec[6] = 0
+        dx_vec[7] = 0
+
+        # NOise
+        # Controls portion
+        dx_vec[1] += 0
+        dx_vec[2] += 0
+        dx_vec[3] += uα
+        dx_vec[4] += uv
+        dx_vec[5] += 0
+
+        # Dynamics Noise portion 
+        dx_vec[1] += wx + 0.9*windx
+        dx_vec[2] += wz + 0.9*windz
+        # display(dx_vec)
+    end
+
+    
+    muwind = [0, 0]
+    covwind = 0.5*I
+    Wind = MvNormal(muwind, covwind)
+    
+    muU = [0, 25]
+    covU = Diagonal([deg2rad(2), 5])
+    U = MvNormal(muU, covU)
+
+    u = rand(U)
+    windsamp = rand(Wind)
+
+    # Setup ODE 
+    tspan = (0.0, params.dt) # dosent matter what time it starts on , just integrate for the dt time
+    prob = ODEProblem(fixedWingEOM_NEW, xk, tspan, [u[1], u[2], windsamp[1], windsamp[2], params.Cd, params.ρ])
+    
+    # TODO: make sure that end is actually the time dt, if not need to poll at t=dt for correct position
+    xkp1 = solve(prob, Tsit5())[end] # only the last time step (if you dont do this it is a solution object that is weird)
+    
+    xkp1[6] = 0.9*xkp1[6] + windsamp[1]
+    xkp1[7] = 0.9*xkp1[6] + windsamp[2]
+
+    # display(xkp1)
+    return xkp1
+end
+end
