@@ -124,10 +124,10 @@ dynamicsUpdate([50.0,0,0,25,0], [[0.0],[0.0],[0.0],[0.0],[0.0]], generalFlyingEO
 
 # ╔═╡ 2a8c5fb5-91ae-495b-8e59-9b4b7d68b9ad
 fixedWingNoise = [
-		Normal(0.0, 1.0), # x_dot (from wind)
-		Normal(0.0, 1.0), # z_dot (from wind))
-		Normal(0.0, deg2rad(0.1)), # α_dot (From control inputs)
-		Normal(25.0, 0.5), # v_dot (From control inputs)
+		Normal(0.0, 0.5), # x_dot (from wind)
+		Normal(0.0, 0.5), # z_dot (from wind))
+		Normal(0.0, deg2rad(3)), # α_dot (From control inputs)
+		Normal(25.0, 1.5), # v_dot (From control inputs)
 		[0.0] # ω_dot
 	]
 
@@ -153,6 +153,18 @@ function genFixedWingTrajectory(x0::Vector{Float64}, params::Params)
 
 end
 
+# ╔═╡ 740da5f3-21f7-4ffd-b02d-dfc93a5c98d9
+multiRotorNoise = [
+		Normal(0.0, 0.5), # x_dot (from wind)
+		Normal(0.0, 0.5), # z_dot (from wind))
+		MixtureModel(Normal[
+            Normal(deg2rad(-90), deg2rad(1)),
+            Normal(0, deg2rad(3)),
+            Normal(deg2rad(90), deg2rad(1))], [0.01, 0.98, 0.01]), # α_dot (From control inputs)
+		Normal(25.0, 5.0), # v_dot (From control inputs)
+		[0.0] # ω_dot
+	]
+
 # ╔═╡ a0af293e-7e06-4fad-a9b1-1a6fa9ed489a
 function genMultirotorTrajectory(x0::Vector{Float64}, params::Params)
 	"""
@@ -161,16 +173,7 @@ function genMultirotorTrajectory(x0::Vector{Float64}, params::Params)
 	Returns a trajectory starting at x0 which is k=0 in matrix form. (k is first axis)
 	Holds noise constant throught a time step
 	"""
-	noise = [
-		Normal(0.0, 0.5), # x_dot (from wind)
-		Normal(0.0, 0.5), # z_dot (from wind))
-		MixtureModel(Normal[
-            Normal(-90, deg2rad(1)),
-            Normal(0, deg2rad(3)),
-            Normal(90, deg2rad(1))], [0.01, 0.98, 0.01]), # α_dot (From control inputs)
-		Normal(25.0, 5.0), # v_dot (From control inputs)
-		[0.0] # ω_dot
-	]
+	noise = multiRotorNoise
 
 	# Preallocate a storage vector
 	xks = Vector{Vector{Float64}}() 
@@ -192,6 +195,21 @@ begin
 	multirotorTrajectory = genMultirotorTrajectory(x0, params);
 	plot_traject = plot(fixedWingTrajectory[:,1], fixedWingTrajectory[:,2], xlabel= "x [m]", ylabel="z [m]", title = "Example Trajectorys", legend = true, label = "Fixed Wing")
 	plot!(plot_traject, multirotorTrajectory[:,1], multirotorTrajectory[:,2], label="Multirotor")
+end
+
+# ╔═╡ dcb709a9-200b-4b4a-9665-cd613659bd19
+begin
+	# plot results states
+	stateList = ["x", "z", "α [rad]", "V", "w"] #Definded before
+	
+	dynamicsExPlots = []
+	for ix = 1:5
+		pTemp = plot(fixedWingTrajectory[:,ix], xlabel= "k", ylabel="", title = "Example Trajectorys state $(stateList[ix])", legend = true, label = "Fixed Wing")
+		plot!(pTemp, multirotorTrajectory[:,ix], label="Multirotor")
+		push!(dynamicsExPlots, pTemp)
+	end
+	
+	plot(dynamicsExPlots[1], dynamicsExPlots[2], dynamicsExPlots[3], dynamicsExPlots[4], dynamicsExPlots[5], layout=(5,1), size=(600,1200), legend = true)
 end
 
 # ╔═╡ 7e1ded81-2900-42dd-9712-cbcb56cfc581
@@ -297,9 +315,9 @@ begin
 	# Measurement test
 	radar_p = [200.0,0.0]
 	radar_noise = [ # all of these need to be distribution so pdf works for measure likelihood
-		Normal(0.0, deg2rad(0.001)), # el
-		Normal(0,0.1), # r
-		Normal(0, 1.0) # rd
+		Normal(0.0, deg2rad(0.5)), # el
+		Chisq(1), # r
+		Normal(0, 0.5) # rd
 	]
 	# Generate Measurements
 	fixedWingTrajectoryMeasurements = radarMeasure(fixedWingTrajectory, radar_p, radar_noise)
@@ -352,25 +370,58 @@ md"## Kalman Filter"
 md"## Bootstrap Particle Filter"
 
 # ╔═╡ b3780178-2093-462a-af0a-ea86dbc33d90
-# Particle dynamics
-function particlePropFixedWing(xk::Vector{Float64}, params::Params)
-	"""
-	This propogates the dynamics of a particle from time k to k+1.
-	Uses noise to randomply move it.
-	Uses dynamics for a fixed wing.
-	Returns the next x
-	"""
-	noise = fixedWingNoise
+begin
+	# Particle dynamics
+	function particlePropFixedWing(xk::Vector{Float64}, params::Params)
+		"""
+		This propogates the dynamics of a particle from time k to k+1.
+		Uses noise to randomply move it.
+		Uses dynamics for a fixed wing.
+		Returns the next x
+		"""
+		noise = fixedWingNoise
+		
+		# Propogate dynamics using the updator
+		xkp1 = dynamicsUpdate(xk, noise, generalFlyingEOM, params)
 	
-	# Propogate dynamics using the updator
-	xkp1 = dynamicsUpdate(xk, noise, generalFlyingEOM, params)
-
-	return xkp1
+		return xkp1
+	end
+	function particlePropMultiRotor(xk::Vector{Float64}, params::Params)
+		"""
+		This propogates the dynamics of a particle from time k to k+1.
+		Uses noise to randomply move it.
+		Uses dynamics for a fixed wing.
+		Returns the next x
+		"""
+		noise = multiRotorNoise
+		
+		# Propogate dynamics using the updator
+		xkp1 = dynamicsUpdate(xk, noise, generalFlyingEOM, params)
+	
+		return xkp1
+	end
 end
 
 # ╔═╡ e52f3082-e9a4-4ddd-8929-b4833c247181
 begin
-	@bind id_test Slider(params.ks[1:end])
+	@bind id_test Slider(params.ks[1:end-1])
+end
+
+# ╔═╡ 6887f2c2-f99d-490c-9854-287359dedab6
+begin
+	pfTestModel = 1 # 1: fixed wing, 2: multirotor
+
+	if pfTestModel == 1
+		pfTestingDynUpdater = particlePropFixedWing
+		pfTestingTrajectory = fixedWingTrajectory
+		pfTestingMeasurements = fixedWingTrajectoryMeasurements
+		pfTestingMeasurementsPositions = fixedWingTrajectoryMeasurementsPositions
+	elseif pfTestModel == 2
+		pfTestingDynUpdater = particlePropMultiRotor
+		pfTestingTrajectory = multirotorTrajectory
+		pfTestingMeasurements = multirotorTrajectoryMeasurements
+		pfTestingMeasurementsPositions = multirotorTrajectoryMeasurementsPositions
+	end
 end
 
 # ╔═╡ 5ee73c3b-c93a-48a8-a586-8602059a4c5d
@@ -382,18 +433,19 @@ begin
 	# Use some point from the generated trajectory above
 	np = 100 # Number of particles
 	xkp1_particles_ex = []
+	startStateWithOffsett = pfTestingTrajectory[id_test,:]# .+ [0.5, 0.5, deg2rad(1.0), 0.2, 0.0]
 	for p = 1:np
-		push!(xkp1_particles_ex, particlePropFixedWing(fixedWingTrajectory[id_test,:], params))
+		push!(xkp1_particles_ex, pfTestingDynUpdater(startStateWithOffsett, params))
 	end
 	xkp1_particles_ex = stack(xkp1_particles_ex, dims=1)
 
 	# Plotting
-	scatter([fixedWingTrajectory[id_test,1]], [fixedWingTrajectory[id_test,2]], label = "xk", color = :green)
+	scatter([pfTestingTrajectory[id_test,1]], [pfTestingTrajectory[id_test,2]], label = "xk", color = :green)
 	scatter!(xkp1_particles_ex[:,1], xkp1_particles_ex[:,2], label = "xk+1 Particles", title = "Example Particle Propogation for Fixed Wing", xlabel= "x [m]", ylabel="z [m]", color = :blue)
-	scatter!([fixedWingTrajectory[id_test+1,1]], [fixedWingTrajectory[id_test+1,2]], label = "xk+1", color = :red)
+	scatter!([pfTestingTrajectory[id_test+1,1]], [pfTestingTrajectory[id_test+1,2]], label = "xk+1", color = :red)
 
 	# add in measurement 
-	scatter!([fixedWingTrajectoryMeasurementsPositions[id_test+1,1]], [fixedWingTrajectoryMeasurementsPositions[id_test+1,2]], label = "yk+1", color = :orange)
+	scatter!([pfTestingMeasurementsPositions[id_test+1,1]], [pfTestingMeasurementsPositions[id_test+1,2]], label = "yk+1", color = :orange)
 end
 
 # ╔═╡ c4dfeab9-0bd0-4a97-83c3-b79c099e1242
@@ -432,28 +484,28 @@ begin
 	end
 end
 
+# ╔═╡ 74d1bd15-8736-49e8-b206-4dc76bbe086d
+md"Test thte likelihood with a grid around the next k point and a generated y"
+
 # ╔═╡ 739c3ec6-e870-4773-be80-d53d2916aab0
 # test thte likelihood with a grid around the next k point and a generated y
 
 begin
-	# Generate a grid of x points around id_test+1
-	
-	
  	#generate measurement likelihoods
 	fixedWingParticlesLikelihood = radarMeasureLikelihood(
-		fixedWingTrajectoryMeasurements[id_test+1,:], 
+		pfTestingMeasurements[id_test+1,:], 
 		xkp1_particles_ex, 
 		radar_p, radar_noise
 	)
 	
-	scatter([fixedWingTrajectory[id_test,1]], [fixedWingTrajectory[id_test,2]], label = "xk", color = :green)
+	scatter([pfTestingTrajectory[id_test,1]], [pfTestingTrajectory[id_test,2]], label = "xk", color = :green)
 	
 	scatter!(xkp1_particles_ex[:,1], xkp1_particles_ex[:,2], label = "xk+1 Particles", title = "Example Particle Propogation for Fixed Wing", xlabel= "x [m]", ylabel="z [m]", color = fixedWingParticlesLikelihood, marker_z = fixedWingParticlesLikelihood, colorbar = true, cmap = :viridis, )
 	
-	scatter!([fixedWingTrajectory[id_test+1,1]], [fixedWingTrajectory[id_test+1,2]], label = "xk+1", color = :red)
+	scatter!([pfTestingTrajectory[id_test+1,1]], [pfTestingTrajectory[id_test+1,2]], label = "xk+1", color = :red)
 	
 	# add in measurement 
-	scatter!([fixedWingTrajectoryMeasurementsPositions[id_test+1,1]], [fixedWingTrajectoryMeasurementsPositions[id_test+1,2]], label = "yk+1", color = :orange)
+	scatter!([pfTestingMeasurementsPositions[id_test+1,1]], [pfTestingMeasurementsPositions[id_test+1,2]], label = "yk+1", color = :orange)
 	
 end
 
@@ -468,97 +520,126 @@ begin
 	# plot results states
 	
 	#make the list a matrix for easy plotting
-	stateList = ["x", "z", "α", "V", "w"]
+	#stateList = ["x", "z", "α", "V", "w"] #defined before
 	
 	pfstateGenPlots = []
 	for ix = 1:5
 		pTemp = scatter(xkp1_particles_ex[:,ix], color = fixedWingParticlesLikelihood, marker_z = fixedWingParticlesLikelihood, colorbar = true, cmap = :viridis, title = "Particle Gen $(stateList[ix]) State", label="Dynamics Gen w Likelihood")
-		hline!(pTemp, [fixedWingTrajectory[id_test,ix]], label = "Start Val")
-		hline!(pTemp, [fixedWingTrajectory[id_test+1,ix]], label = "End Val")
+		hline!(pTemp, [pfTestingTrajectory[id_test,ix]], label = "Start Val")
+		hline!(pTemp, [pfTestingTrajectory[id_test+1,ix]], label = "End Val")
 		push!(pfstateGenPlots, pTemp)
 	end
 	
 	plot(pfstateGenPlots[1], pfstateGenPlots[2], pfstateGenPlots[3], pfstateGenPlots[4], pfstateGenPlots[5], layout=(5,1), size=(800,1200), legend = true)
 end
 
-# ╔═╡ 04724311-3fac-4b26-b7b4-9fd89b3bcbdd
-radar_noise_larger = [ # all of these need to be distribution so pdf works for measure likelihood
-		Normal(0.0, deg2rad(1.0)), # el
-		Normal(0,10.0), # r
-		Normal(0, 30.0) # rd
-	]
+# ╔═╡ fcd71e92-ab64-41e7-a13e-6fbf1d29e19e
+# A MMSE Point Estimator
+function MMSE(xPMat::Matrix{Float64})
+    """
+    Returns the MMSE point estimate for a particle filter (Assuming equal weights)
+    """
+    return dropdims(mean(xPMat, dims=1), dims=1)::Vector{Float64}, 								dropdims(std(xPMat, dims=1), dims=1)::Vector{Float64}
+
+end
 
 # ╔═╡ 15408539-871e-4991-be26-24cb100b5c66
 # The particle filter
 begin
-function pf(nP, ypf)
+function pf(pxk::Matrix{Float64}, ys::Matrix{Float64}, particleProp::Function, measureLike::Function)
 	# starts at trajectory[1] which is x0 which is k=1, the measurement measure[1] is pretended to not exist for consistancy with literature. 
-	#np:  number of particles
-	# ypf: the measurements for the pf (k=k when compared to x)
-	
+	# Inputs:
+		# pxk: matrix of initial particles, dim 1 is particles
+		# np:  number of particles
+		# ys: the measurements for the pf starting at k+1, so ys[1] corresponds to pxkp1, not the entered particles
+		# particleProp: a function that takes in a state vector and params and moves 1 time step forward
+		# measureLike: The measurement likelihood function Tkes in (yvec, state vec)
+
+	# Get number of particles in array
+	nP = size(pxk)[1] 
+	nM = size(ys)[1] # number of measurements
+
+	# Set up storage
 	pks = [] # this stors matrixes of particles for every k
-	wks = [] # this stores vectors of weights for eveery k
+	pks_noResamp = [] # this stors matrixes of particles for every k, before the resample
 	nPdeplete = [] # this stores the number of particles with 0 weight every k
+	pointValues = [] # this stores the x value for mmse estimate for every k
+	pointValuesStd = [] # this stores the std value for x for the mmse est for k
 	
-	# Initial particle generation
-	p_gen0 = [
-		Normal(x0[1], 1.0), # x
-		Normal(x0[2], 1.0), # z
-		Normal(x0[3], deg2rad(1)), # α
-		Normal(x0[4], .1), # v
-		[0.0], # w
-	]
-	pxk = stack(rand.(p_gen0, nP), dims=2) # particles x state at time k
+	# Initial adding to list
 	push!(pks, pxk)
+	push!(pointValues, MMSE(pxk)[1])
+	
 	wk = ones(nP)./nP # all same weight
 
 	try
-		for k in params.ks[1:end-1] #update pf from state k to kp1
-			@printf("Starting k=%i step\n", k)
+		#update pf from state k to kp1 (traking kp1 becasue measurement it kp1)
+		for kp1 in 1:nM 
 			# make sure its a new thing and not changing whats stored in the list
 			pxkp1 = deepcopy(pxk) 
 			wkp1 = deepcopy(wk)
-
-			@show ypf[k+1,:]
 			
 			# for every particle
 			for ip = 1:nP
 				# Dynamics Propogation
-				pxkp1[ip,:] .= particlePropFixedWing(pxk[ip,:], params)
+				pxkp1[ip,:] .= particleProp(pxk[ip,:], params)
 					
 				# Measurement Likelihood
-				wkp1[ip] = radarMeasureLikelihood(
-					ypf[k+1,:], # you are at the next measurement
-					pxkp1[ip,:], 
-					radar_p, radar_noise_larger
-				)
+				wkp1[ip] = measureLike(ys[kp1,:], pxkp1[ip,:]) # at next k for y
 			end
-		
+			
 			#Normalize weights
 			wkp1 .= wkp1./sum(wkp1)
-		
+
+			# store particles before resampling
+			push!(pks_noResamp, pxkp1)
+			
 			# Resample
 			sampIDXs = sample(1:nP, Weights(wkp1) , nP)
 			pxkp1 .= pxkp1[sampIDXs, :]
 	
 			# Add to tracker
 			push!(pks, pxkp1)
-			push!(wks, wkp1)
 			push!(nPdeplete, count(x -> x < .0000001, wkp1))
-		
+			pointValk, stdk = MMSE(pxkp1)
+			push!(pointValues, pointValk)
+			push!(pointValuesStd, stdk)
+
+			# Move state forward
+			pxk .= pxkp1
 		end
 	catch err
 		@show err
 	end
-	return pks, nPdeplete
+	return pks, nPdeplete, pks_noResamp, stack(pointValues, dims=1), stack(pointValuesStd, dims=1)
 end
 end
 
 # ╔═╡ 446183a0-3e2e-419d-b1ee-21c8b3bdb9d8
+# Test the PF
 begin
-	# run the PF
+	# Particle filiter setup
 	nP = 1000
-	pks, nPdeplete = pf(nP, fixedWingTrajectoryMeasurements)
+	
+	# generate PF initial particles
+	p_gen0 = [
+		Normal(x0[1], 10.0), # x
+		Normal(x0[2], 10.0), # z
+		Normal(x0[3], deg2rad(10)), # α
+		Normal(x0[4], 10), # v
+		[0.0], # w
+	]
+	pxk = stack(rand.(p_gen0, nP), dims=2) # particles x state at time k
+
+	# Set up measurement likelihood function in right form
+	measureLike(y, x) = radarMeasureLikelihood(y, x, radar_p, radar_noise)
+	dynamicUp = pfTestingDynUpdater
+
+	# set up measurements to be given
+	yPFLookAt = pfTestingMeasurements[2:end,:]
+	
+	# run the PF
+	pks, nPdeplete, pks_noResamp, pointValues, pointValuesStd = pf(pxk, yPFLookAt, dynamicUp, measureLike)
 end
 
 # ╔═╡ de73f537-f65b-4077-b0f0-05fb06301f2e
@@ -567,14 +648,16 @@ begin
 	
 	#make the list a matrix for easy plotting
 	pksMat = stack(pks, dims=1)
-	@show size(pksMat)
+	pksMat_noResamp = stack(pks_noResamp, dims=1)
 	nPlotPOints = size(pksMat)[1]
 	#stateList = ["x", "z", "α", "V", "w"] #Definded before
 	
 	pfstatePlots = []
 	for ix = 1:5
-		pTemp = scatter(pksMat[:,:,ix], title = "PF state $(stateList[ix])", xlabel = "k", color=:blue, label = "PF")
-		scatter!(fixedWingTrajectory[1:nPlotPOints, ix], color=:red, label = "true")
+		#pTemp = scatter(pksMat_noResamp[:,:,ix], title = "PF state $(stateList[ix])", xlabel = "k", color=:orange, label = "PF before resampling", markershape = :cross)
+		#scatter!(pksMat[:,:,ix], title = "PF state $(stateList[ix])", xlabel = "k", color=:blue, label = "PF", markershape = :xcross)
+		pTemp = plot(pointValues[:,ix], title = "PF state $(stateList[ix]) MMSE",  xlabel = "k", ribbon=pointValuesStd[:,ix])
+		scatter!(pfTestingTrajectory[1:nPlotPOints, ix], color=:red, label = "true")
 		push!(pfstatePlots, pTemp)
 	end
 	
@@ -2786,8 +2869,10 @@ version = "1.4.1+1"
 # ╠═027c35b8-50e8-4c08-b3cc-68d1fe224f8f
 # ╠═2a8c5fb5-91ae-495b-8e59-9b4b7d68b9ad
 # ╠═b9e77b29-b8a3-42e7-a65c-b2089cab27f1
+# ╠═740da5f3-21f7-4ffd-b02d-dfc93a5c98d9
 # ╠═a0af293e-7e06-4fad-a9b1-1a6fa9ed489a
 # ╠═acff5813-d9b7-493e-86e2-9aac64730746
+# ╠═dcb709a9-200b-4b4a-9665-cd613659bd19
 # ╠═7e1ded81-2900-42dd-9712-cbcb56cfc581
 # ╠═ae7e355c-8f9c-416f-b592-3179c1961197
 # ╠═883be381-508e-47f2-92f4-b6c7213be02a
@@ -2802,13 +2887,15 @@ version = "1.4.1+1"
 # ╠═b3cf4446-607e-4d6c-b7bb-239bdb6db13a
 # ╠═b3780178-2093-462a-af0a-ea86dbc33d90
 # ╠═e52f3082-e9a4-4ddd-8929-b4833c247181
+# ╠═6887f2c2-f99d-490c-9854-287359dedab6
 # ╠═5ee73c3b-c93a-48a8-a586-8602059a4c5d
 # ╠═c59efcae-6bcc-43d4-b757-bee894b73025
 # ╠═c4dfeab9-0bd0-4a97-83c3-b79c099e1242
+# ╠═74d1bd15-8736-49e8-b206-4dc76bbe086d
 # ╠═739c3ec6-e870-4773-be80-d53d2916aab0
 # ╠═38d40c3b-fa90-4755-b04f-711412e346ac
 # ╠═b9755758-af98-4725-a8ea-2b57213d0c0e
-# ╠═04724311-3fac-4b26-b7b4-9fd89b3bcbdd
+# ╠═fcd71e92-ab64-41e7-a13e-6fbf1d29e19e
 # ╠═15408539-871e-4991-be26-24cb100b5c66
 # ╠═446183a0-3e2e-419d-b1ee-21c8b3bdb9d8
 # ╠═de73f537-f65b-4077-b0f0-05fb06301f2e
