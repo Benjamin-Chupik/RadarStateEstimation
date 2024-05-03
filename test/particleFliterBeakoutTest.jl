@@ -164,8 +164,8 @@ end
 
 # ╔═╡ 740da5f3-21f7-4ffd-b02d-dfc93a5c98d9
 multiRotorNoise = [
-		Normal(0.0, 0.5), # x_dot (from wind)
-		Normal(0.0, 0.5), # z_dot (from wind))
+		[0.0], # x_dot (from wind)
+		[0.0], # z_dot (from wind))
 		MixtureModel(Normal[
             Normal(deg2rad(-90), deg2rad(1)),
             Normal(0, deg2rad(3)),
@@ -371,16 +371,126 @@ begin
 end
 
 # ╔═╡ 1cd51e4a-f27f-4187-b5ce-1bdcae339703
-md"# Estimators"
+md"""# Estimators
+## Model selection"""
+
+# ╔═╡ e52f3082-e9a4-4ddd-8929-b4833c247181
+begin
+	@bind id_test Slider(params.ks[1:end-1])
+end
+
+# ╔═╡ 98269eca-622a-4537-9785-58771a236d57
+@bind objectModelName Select(["FixedWing", "Multirotor"])
 
 # ╔═╡ de55684e-4015-4b18-afce-b8e61ac8f540
 md"## Kalman Filter"
 
+# ╔═╡ 332ae310-4340-447b-b938-ff063c6e50a3
+begin
+function linearizedGeneralFlyingEOM(x_vec::Vector{Float64}, t)
+    # x_vec: [x, y, α, v, wx, wz]
+    # p_vec: Parameters vector: [noise, Cd, rho]
+		# Where noise: [dx Noise, dz Noise, dα Noise, v, wx, wz]
+		# This needs to be one continuous vector tho, not [[],#,#]
+
+    # Unpacking
+    x = x_vec[1]
+    y = x_vec[2]
+    α = x_vec[3]
+    v = x_vec[4]
+    wx = x_vec[5]
+	wz = x_vec[6]
+    
+    A = [0 0 -v*sin(α) cos(α) 1 0
+         0 0  v*cos(α) sin(α) 0 1
+         0 0 0 0 0 0
+         0 0 0 -v*params.Cd/params.ρ 0 0
+         0 0 0 0 0 0]
+	return A
+end;
+
+
+function EKF_step!(x_list, P_list, yk1, Qk, Rk, params, radar)
+    """
+    Updates the x_list with xk+1 with an EKF prediction
+    Inputs:
+        x_list: list containing the x vectors so far
+        P_list: list containing the P matricies so far
+        uk: control input corresponding to timestep k
+        yk1: measurement corresponding to timestep k+1
+        Qk: EKF dynamics noise at step k
+        Rk: EKF measurement noise at step k
+        params: paramter struct
+        radar: radar struct
+    Updates:
+        x_list with new x
+        P_list with new P
+    """
+
+    ############### PREDICTION STEP ################
+    xk = x_list[end]
+    Pk = P_list[end]
+    
+    xk1min = RadarStateEstimation.models.fixedWing.simulate(xk, uk, wk, params) # 		nonlinear dynamics prediction
+    
+    Atild = linearizedGeneralFlyingEOM(xk, params) #linearized dynamics at timestep
+    Fk = I + params.dt*Atild 
+
+    Pk1min = Fk*Pk*Fk' + Qk # update Pmin
+
+    yk1hat = RadarStateEstimation.models.radar.radarMeasure(xk1min, radar)
+    Hk1 = RadarStateEstimation.models.fixedWing.fixedWingMeasDer(xk1min, radar)
+
+    ek1 = yk1 .- yk1hat
+    
+    Kk1 = Pk1min*Hk1'*inv(Hk1*Pk1min*Hk1'+ Rk)
+
+    xk1plus = xk1min + Kk1*ek1
+    
+    Pk1plus = (I-Kk1*Hk1)*Pk1min
+    
+    push!(x_list, xk1plus)
+    push!(P_list, Pk1plus)
+end
+
+function EKF_bulk(x0, P0, Y, Qk, Rk, params, radar)
+    """
+    Updates the x_list with xk+1 with an EKF prediction
+    Inputs:
+        x_list: vector x0
+        P_list: matrix P0
+        U: Vector of control imputs for all k
+        Y: Vector of measurements for all k (k=1 should be empty)
+        Qk: EKF dynamics noise at step k
+        Rk: EKF measurement noise at step k
+        params: paramter struct
+        radar: radar struct
+    Updates:
+        x_list with all x
+        P_list with all P
+    """
+    # @assert length(U) == length(Y)
+    K = length(U)
+
+    # Initialize x_list
+    x_list = Vector{Vector{Float64}}()
+    push!(x_list, x0)
+
+    # Initialize P_list
+    P_list = Vector{Matrix{Float64}}()
+    push!(P_list, P0)
+
+    for k in 1:K
+        println("k=$(k)")
+        EKF_step!(x_list, P_list, U[k], W[k+1], Y[k+1], Qk, Rk, params, radar)
+    end
+
+    return (x_list, P_list)
+end
+end
+
 # ╔═╡ b3cf4446-607e-4d6c-b7bb-239bdb6db13a
 md"## Bootstrap Particle Filter"
-
-# ╔═╡ 98269eca-622a-4537-9785-58771a236d57
-@bind obejctModelName Select(["FixedWing", "Multirotor"])
 
 # ╔═╡ b3780178-2093-462a-af0a-ea86dbc33d90
 begin
@@ -415,25 +525,20 @@ begin
 	end
 end
 
-# ╔═╡ e52f3082-e9a4-4ddd-8929-b4833c247181
-begin
-	@bind id_test Slider(params.ks[1:end-1])
-end
-
 # ╔═╡ 6887f2c2-f99d-490c-9854-287359dedab6
 begin
-	if obejctModelName == "FixedWing"
+	if objectModelName == "FixedWing"
 		pfTestingDynUpdater = particlePropFixedWing
 		pfTestingTrajectory = fixedWingTrajectory
 		pfTestingMeasurements = fixedWingTrajectoryMeasurements
 		pfTestingMeasurementsPositions = fixedWingTrajectoryMeasurementsPositions
-	elseif obejctModelName == "Multirotor"
+	elseif objectModelName == "Multirotor"
 		pfTestingDynUpdater = particlePropMultiRotor
 		pfTestingTrajectory = multirotorTrajectory
 		pfTestingMeasurements = multirotorTrajectoryMeasurements
 		pfTestingMeasurementsPositions = multirotorTrajectoryMeasurementsPositions
-	elseif obejctModelName == "FixedWing-NoWind"
-		elseif obejctModelName == "Multirotor-NoWind"
+	elseif objectModelName == "FixedWing-NoWind"
+		elseif objectModelName == "Multirotor-NoWind"
 	else
 		throw("Option Select error")
 	end
@@ -456,7 +561,7 @@ begin
 
 	# Plotting
 	scatter([pfTestingTrajectory[id_test,1]], [pfTestingTrajectory[id_test,2]], label = "xk", color = :green)
-	scatter!(xkp1_particles_ex[:,1], xkp1_particles_ex[:,2], label = "xk+1 Particles", title = "Example Particle Propogation for $(obejctModelName)", xlabel= "x [m]", ylabel="z [m]", color = :blue)
+	scatter!(xkp1_particles_ex[:,1], xkp1_particles_ex[:,2], label = "xk+1 Particles", title = "Example Particle Propagation for $(objectModelName)", xlabel= "x [m]", ylabel="z [m]", color = :blue)
 	scatter!([pfTestingTrajectory[id_test+1,1]], [pfTestingTrajectory[id_test+1,2]], label = "xk+1", color = :red)
 
 	# add in measurement 
@@ -515,7 +620,8 @@ begin
 	
 	scatter([pfTestingTrajectory[id_test,1]], [pfTestingTrajectory[id_test,2]], label = "xk", color = :green)
 	
-	scatter!(xkp1_particles_ex[:,1], xkp1_particles_ex[:,2], label = "xk+1 Particles", title = "Example Particle Propogation for $(obejctModelName)", xlabel= "x [m]", ylabel="z [m]", color = fixedWingParticlesLikelihood, marker_z = fixedWingParticlesLikelihood, colorbar = true, cmap = :viridis, )
+	scatter!(xkp1_particles_ex[:,1], xkp1_particles_ex[:,2], label =
+	"xk+1 Particles", title = "Example Particle Propagation for $(objectModelName)", xlabel= "x [m]", ylabel="z [m]", color = fixedWingParticlesLikelihood, marker_z = fixedWingParticlesLikelihood, colorbar = true, cmap = :viridis, )
 	
 	scatter!([pfTestingTrajectory[id_test+1,1]], [pfTestingTrajectory[id_test+1,2]], label = "xk+1", color = :red)
 	
@@ -2912,12 +3018,13 @@ version = "1.4.1+1"
 # ╠═cec1b9bf-76a9-4e6d-b45b-ca4c35c0c39e
 # ╠═8fcd1f1c-f077-4c5f-ae51-12b07c02d808
 # ╠═1cd51e4a-f27f-4187-b5ce-1bdcae339703
-# ╠═de55684e-4015-4b18-afce-b8e61ac8f540
-# ╠═b3cf4446-607e-4d6c-b7bb-239bdb6db13a
-# ╠═98269eca-622a-4537-9785-58771a236d57
-# ╠═b3780178-2093-462a-af0a-ea86dbc33d90
 # ╠═e52f3082-e9a4-4ddd-8929-b4833c247181
+# ╠═98269eca-622a-4537-9785-58771a236d57
 # ╠═6887f2c2-f99d-490c-9854-287359dedab6
+# ╠═de55684e-4015-4b18-afce-b8e61ac8f540
+# ╠═332ae310-4340-447b-b938-ff063c6e50a3
+# ╠═b3cf4446-607e-4d6c-b7bb-239bdb6db13a
+# ╠═b3780178-2093-462a-af0a-ea86dbc33d90
 # ╠═5ee73c3b-c93a-48a8-a586-8602059a4c5d
 # ╠═c59efcae-6bcc-43d4-b757-bee894b73025
 # ╠═c4dfeab9-0bd0-4a97-83c3-b79c099e1242
