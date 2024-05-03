@@ -74,21 +74,21 @@ function generalFlyingEOM(dx_vec::Vector{Float64}, x_vec::Vector{Float64}, p_vec
     Cd = p_vec[7]
     rho = p_vec[8]
     
-    # Dyncamics Propogation
+    # Dynamics Propagation
     dx_vec[1] = v*cos(α)
     dx_vec[2] = v*sin(α)
-    dx_vec[3] = 0 # No dynamics on angle
+    dx_vec[3] = 0.0 # No dynamics on angle
     dx_vec[4] = -0.5*v^2*Cd*rho
-    dx_vec[5] = -0.1*wx
-	dx_vec[6] = -0.1*wz
+    dx_vec[5] = 0.0
+	dx_vec[6] = 0.0
 
     # Noise
-	dx_vec[1] += noise[1]
-	dx_vec[2] += noise[2]
+	dx_vec[1] += wx
+	dx_vec[2] += wz
 	dx_vec[3] += noise[3]
 	dx_vec[4] += noise[4]
-	dx_vec[5] += noise[5]
-	dx_vec[6] += noise[6]
+	dx_vec[5] += 0.0
+	dx_vec[6] += 0.0
 end;
 
 # ╔═╡ 2ea40eca-f6f4-4d39-8e7d-38ba33d42c9e
@@ -120,6 +120,7 @@ function dynamicsUpdate(xk, noise, dynamics::Function, params)
     prob = ODEProblem(dynamics, xk, tspan, inputstuf)
     
 	xkp1 = solve(prob, Tsit5())[end] # only the last time step (if you dont do this it is a solution object that is weird)
+	xkp1[5:6] = 0.9*xkp1[5:6] + noise_samp[5:6]
 
 	return xkp1
 
@@ -131,8 +132,8 @@ dynamicsUpdate([50.0,0,0,25,0, 0], [[0.0],[0.0],[0.0],[2.0],[2.0],[0.0]], genera
 
 # ╔═╡ 2a8c5fb5-91ae-495b-8e59-9b4b7d68b9ad
 fixedWingNoise = [
-		Normal(0.0, 0.5), # x_dot (from wind)
-		Normal(0.0, 0.5), # z_dot (from wind))
+		[0.0], # x_dot
+		[0.0], # z_dot
 		Normal(0.0, deg2rad(3)), # α_dot (From control inputs)
 		Normal(25.0, 1.5), # v_dot (From control inputs)
 		Normal(0.0, 0.5), # wx_dot
@@ -202,7 +203,7 @@ begin
 	x0 = [0.0,50.0,0.0,25.0,0.0, 0.0] # example start point for common comparison
 	fixedWingTrajectory = genFixedWingTrajectory(x0, params);
 	multirotorTrajectory = genMultirotorTrajectory(x0, params);
-	plot_traject = plot(fixedWingTrajectory[:,1], fixedWingTrajectory[:,2], xlabel= "x [m]", ylabel="z [m]", title = "Example Trajectorys", legend = true, label = "Fixed Wing")
+	plot_traject = plot(fixedWingTrajectory[:,1], fixedWingTrajectory[:,2], xlabel= "x [m]", ylabel="z [m]", title = "Example Trajectories", legend = true, label = "Fixed Wing")
 	plot!(plot_traject, multirotorTrajectory[:,1], multirotorTrajectory[:,2], label="Multirotor")
 end
 
@@ -213,7 +214,7 @@ begin
 	
 	dynamicsExPlots = []
 	for ix = 1:6
-		pTemp = plot(fixedWingTrajectory[:,ix], xlabel= "k", ylabel="", title = "Example Trajectorys state $(stateList[ix])", legend = true, label = "Fixed Wing")
+		pTemp = plot(fixedWingTrajectory[:,ix], xlabel= "k", ylabel="", title = "Example Trajectories state $(stateList[ix])", legend = true, label = "Fixed Wing")
 		plot!(pTemp, multirotorTrajectory[:,ix], label="Multirotor")
 		push!(dynamicsExPlots, pTemp)
 	end
@@ -354,7 +355,7 @@ begin
 		# Plot measurements on top of trajectories
 		plot_measure = deepcopy(plot_traject)
 		scatter!(plot_measure,fixedWingTrajectoryMeasurementsPositions[:,1], fixedWingTrajectoryMeasurementsPositions[:,2], label = "Fixed Wing Measurement Positions", color = :blue)
-		scatter!(plot_measure,multirotorTrajectoryMeasurementsPositions[:,1], multirotorTrajectoryMeasurementsPositions[:,2], label = "Fixed Wing Measurement Positions", color = :orange)
+		scatter!(plot_measure,multirotorTrajectoryMeasurementsPositions[:,1], multirotorTrajectoryMeasurementsPositions[:,2], label = "Multirotor Measurement Positions", color = :orange)
 		plot_measure
 end
 
@@ -725,7 +726,7 @@ StatsBase = "~0.34.3"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.3"
+julia_version = "1.10.2"
 manifest_format = "2.0"
 project_hash = "55c49d10d94b460226cc1f72e48feeeea81fd6b9"
 
@@ -967,7 +968,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.1.1+0"
+version = "1.1.0+0"
 
 [[deps.CompositionsBase]]
 git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
@@ -1189,9 +1190,9 @@ version = "0.1.10"
 
 [[deps.Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "4558ab818dcceaab612d1bb8c19cee87eda2b83c"
+git-tree-sha1 = "1c6317308b9dc757616f0b5cb379db10494443a7"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
-version = "2.5.0+0"
+version = "2.6.2+0"
 
 [[deps.ExponentialUtilities]]
 deps = ["Adapt", "ArrayInterface", "GPUArraysCore", "GenericSchur", "LinearAlgebra", "PrecompileTools", "Printf", "SparseArrays", "libblastrampoline_jll"]
@@ -1235,9 +1236,9 @@ version = "0.3.2"
 
 [[deps.FastLapackInterface]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "0a59c7d1002f3131de53dc4568a47d15a44daef7"
+git-tree-sha1 = "f4102aab9c7df8691ed09f9c42e34f5ab5458ab9"
 uuid = "29a986be-02c6-4525-aec4-84b980013641"
-version = "2.0.2"
+version = "2.0.3"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -1513,9 +1514,9 @@ version = "0.6.0"
 
 [[deps.Krylov]]
 deps = ["LinearAlgebra", "Printf", "SparseArrays"]
-git-tree-sha1 = "8a6837ec02fe5fb3def1abc907bb802ef11a0729"
+git-tree-sha1 = "267dad6b4b7b5d529c76d40ff48d33f7e94cb834"
 uuid = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
-version = "0.9.5"
+version = "0.9.6"
 
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -2209,9 +2210,9 @@ version = "0.6.42"
 
 [[deps.SciMLBase]]
 deps = ["ADTypes", "ArrayInterface", "CommonSolve", "ConstructionBase", "Distributed", "DocStringExtensions", "EnumX", "FunctionWrappersWrappers", "IteratorInterfaceExtensions", "LinearAlgebra", "Logging", "Markdown", "PrecompileTools", "Preferences", "Printf", "RecipesBase", "RecursiveArrayTools", "Reexport", "RuntimeGeneratedFunctions", "SciMLOperators", "SciMLStructures", "StaticArraysCore", "Statistics", "SymbolicIndexingInterface", "Tables"]
-git-tree-sha1 = "beb1f94b08c4976ed1db0ca01b9e6bac89706faf"
+git-tree-sha1 = "15332626b477b37fd44913dd8fa607c8c25171e6"
 uuid = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
-version = "2.35.0"
+version = "2.36.0"
 
     [deps.SciMLBase.extensions]
     SciMLBaseChainRulesCoreExt = "ChainRulesCore"
@@ -2458,9 +2459,9 @@ version = "5.2.2+0"
 
 [[deps.SymbolicIndexingInterface]]
 deps = ["Accessors", "ArrayInterface", "RuntimeGeneratedFunctions", "StaticArraysCore"]
-git-tree-sha1 = "70701c1a1da137acfde1f838e2dcc33fe086828c"
+git-tree-sha1 = "c4e6b5ec8c8cf592032664b6f4d75a389b420f87"
 uuid = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
-version = "0.3.19"
+version = "0.3.20"
 
 [[deps.TOML]]
 deps = ["Dates"]
