@@ -426,11 +426,13 @@ begin
 		pfTestingTrajectory = fixedWingTrajectory
 		pfTestingMeasurements = fixedWingTrajectoryMeasurements
 		pfTestingMeasurementsPositions = fixedWingTrajectoryMeasurementsPositions
-	elseif obejctModelName == Multirotor
+	elseif obejctModelName == "Multirotor"
 		pfTestingDynUpdater = particlePropMultiRotor
 		pfTestingTrajectory = multirotorTrajectory
 		pfTestingMeasurements = multirotorTrajectoryMeasurements
 		pfTestingMeasurementsPositions = multirotorTrajectoryMeasurementsPositions
+	elseif obejctModelName == "FixedWing-NoWind"
+		elseif obejctModelName == "Multirotor-NoWind"
 	else
 		throw("Option Select error")
 	end
