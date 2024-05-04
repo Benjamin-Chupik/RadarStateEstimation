@@ -170,7 +170,7 @@ multiRotorNoise = [
             Normal(deg2rad(-90), deg2rad(1)),
             Normal(0, deg2rad(3)),
             Normal(deg2rad(90), deg2rad(1))], [0.01, 0.98, 0.01]), # α_dot (From control inputs)
-		Normal(25.0, 5.0), # v_dot (From control inputs)
+		Normal(10.0, 5.0), # v_dot (From control inputs)
 		Normal(0.0, 0.5), # wx_dot
 		Normal(0.0, 0.5) # wz_dot
 	]
@@ -887,21 +887,21 @@ begin
 	# Loop through every measurement
 	for kp1 in 1:nm
 		# Run the PF and get the likelihoods for that step
-		pxkp1_fw, Λm_fw = pf_step(pxk_fw, yPFLookAt[kp1, :], particlePropFixedWing, measureLike)
-		pxkp1_mr, Λm_mr = pf_step(pxk_mr, yPFLookAt[kp1, :], particlePropMultiRotor, measureLike)
+		pxkp1_fw, Λmkp1_fw = pf_step(pxk_fw, yPFLookAt[kp1, :], particlePropFixedWing, measureLike)
+		pxkp1_mr, Λmkp1_mr = pf_step(pxk_mr, yPFLookAt[kp1, :], particlePropMultiRotor, measureLike)
 
-		if Λm_fw==nothing || Λm_mr==nothing
+		if Λmkp1_fw==nothing || Λmkp1_mr==nothing
 			@printf("A models likelihood whent to zero so have preformed ID")
 			break
 		end
 
 		# Get the running model likelihood
-		Λmkp1_fw =  Λmk_fw*Λm_fw
-		Λmkp1_mr =  Λmk_mr*Λm_fw
+		Λmkp1_fw =  Λmkp1_fw*Λmk_fw
+		Λmkp1_mr =  Λmkp1_mr*Λmk_mr
 
 		# Normalize with all models
-		Λmkp1_fw =  Λmkp1_fw/sum(Λmkp1_fw + Λmkp1_mr)
-		Λmkp1_mr =  Λmkp1_mr/sum(Λmkp1_fw + Λmkp1_mr)
+		Λmkp1_fw =  Λmkp1_fw/(Λmkp1_fw + Λmkp1_mr)
+		Λmkp1_mr =  Λmkp1_mr/(Λmkp1_fw + Λmkp1_mr)
 
 		# Save data
 		push!(pxks_fw, pxkp1_fw)
