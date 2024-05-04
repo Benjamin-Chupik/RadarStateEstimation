@@ -671,7 +671,6 @@ function pf(pxk::Matrix{Float64}, ys::Matrix{Float64}, particleProp::Function, m
 	# starts at trajectory[1] which is x0 which is k=1, the measurement measure[1] is pretended to not exist for consistancy with literature. 
 	# Inputs:
 		# pxk: matrix of initial particles, dim 1 is particles
-		# np:  number of particles
 		# ys: the measurements for the pf starting at k+1, so ys[1] corresponds to pxkp1, not the entered particles
 		# particleProp: a function that takes in a state vector and params and moves 1 time step forward
 		# measureLike: The measurement likelihood function Tkes in (yvec, state vec)
@@ -755,8 +754,9 @@ begin
 		Normal(x0[5], 1), # wx
 		Normal(x0[6], 1) # wz		
 	]
-	pxk = stack(rand.(p_gen0, nP), dims=2) # particles x state at time k
-
+	px0 = stack(rand.(p_gen0, nP), dims=2) # particles x state at time k
+	pxk = deepcopy(px0)
+	
 	# Set up measurement likelihood function in right form
 	measureLike(y, x) = radarMeasureLikelihood(y, x, radar_p, radar_noise)
 	dynamicUp = pfTestingDynUpdater
@@ -809,6 +809,123 @@ begin
 
 end
 
+# ╔═╡ 104c29ef-f3cd-4115-88b5-8c6994b03de7
+md"""
+# System ID
+The truth data is the same as the selected option for the PF and KF.
+
+Also uses the same Initial particle distribution (and number of particles)
+"""
+
+# ╔═╡ aa44798c-18ea-489c-bc0a-87cdd156a306
+# make a function to run a SIR-PF Step and output the model likelihood
+function pf_step(pxk::Matrix{Float64}, ys::Vector{Float64}, particleProp::Function, measureLike::Function)
+	# starts at trajectory[1] which is x0 which is k=1, the measurement measure[1] is pretended to not exist for consistancy with literature. 
+	# Inputs:
+		# pxk: Matrix of particles at time k (dim 1 is particles dim 2 is x)
+		# ys: the measurement for the pf for k+1 
+		# particleProp: a function that takes in a state vector and params and moves 1 time step forward
+		# measureLike: The measurement likelihood function Tkes in (yvec, state vec)
+
+	# Get number of particles in array
+	nP = size(pxk)[1] 
+	
+	# Preallocate weights
+	wkp1 = ones(nP)./nP # all same weight
+
+	# make sure its a new thing and not changing whats stored in the list
+	pxkp1 = deepcopy(pxk) 
+	
+	# for every particle
+	for ip = 1:nP
+		# Dynamics Propogation
+		pxkp1[ip,:] .= particleProp(pxk[ip,:], params)
+			
+		# Measurement Likelihood
+		wkp1[ip] = measureLike(ys, pxkp1[ip,:]) # at next k for y
+	end
+
+	# Get the model likelihood for ONLY this step (not multipled by old one or normalized with respect to other models)
+	Λ_m = sum(wkp1)
+	if Λ_m== 0.0 # if everything is 0, then it is not the model and the SIR will break
+		return nothing, nothing
+	end
+	
+	#Normalize weights
+	wkp1 .= wkp1./sum(wkp1)
+
+	# store particles before resampling
+	push!(pks_noResamp, pxkp1)
+	
+	# Resample
+	sampIDXs = sample(1:nP, Weights(wkp1) , nP)
+	pxkp1 .= pxkp1[sampIDXs, :]
+
+	return pxkp1, Λ_m
+end
+
+# ╔═╡ 4d0df2bd-34a5-4eb3-bcc9-d47079c2f382
+# The MMF
+begin
+	# Set up storage arrays
+	pxks_fw = [] # this stors matrixes of particles for every k for the fixed wing
+	pxks_mr = [] # this stors matrixes of particles for every k for the multirotor
+	Λmks = [] # stores the model likelihoods as vectors in vectors [fw, mr]
+
+	# Setup
+	nm = size(yPFLookAt)[1] # Get the number of mesurements (this is allready shifted so y[1] is k=2)
+	pxk_fw = deepcopy(px0) # fixed wing particles for k
+	pxk_mr = deepcopy(px0) # multirotor particles for k
+	Λmk_fw = 0.5 # The initial model likelihood for the fixed wing
+	Λmk_mr = 0.5 # The initial model likelihood for the multirotor
+
+	# Initial push to saving arrays
+	push!(pxks_fw, pxk_fw)
+	push!(pxks_mr, pxk_mr)
+	push!(Λmks, [Λmk_fw, Λmk_mr])
+	
+	# Loop through every measurement
+	for kp1 in 1:nm
+		# Run the PF and get the likelihoods for that step
+		pxkp1_fw, Λm_fw = pf_step(pxk_fw, yPFLookAt[kp1, :], particlePropFixedWing, measureLike)
+		pxkp1_mr, Λm_mr = pf_step(pxk_mr, yPFLookAt[kp1, :], particlePropMultiRotor, measureLike)
+
+		if Λm_fw==nothing || Λm_mr==nothing
+			@printf("A models likelihood whent to zero so have preformed ID")
+			break
+		end
+
+		# Get the running model likelihood
+		Λmkp1_fw =  Λmk_fw*Λm_fw
+		Λmkp1_mr =  Λmk_mr*Λm_fw
+
+		# Normalize with all models
+		Λmkp1_fw =  Λmkp1_fw/sum(Λmkp1_fw + Λmkp1_mr)
+		Λmkp1_mr =  Λmkp1_mr/sum(Λmkp1_fw + Λmkp1_mr)
+
+		# Save data
+		push!(pxks_fw, pxkp1_fw)
+		push!(pxks_mr, pxkp1_mr)
+		push!(Λmks, [Λmkp1_fw, Λmkp1_mr])
+
+		# Move a time step forward
+		pxk_fw .= pxkp1_fw
+		pxk_mr .= pxkp1_mr
+		Λmk_fw = Λmkp1_fw
+		Λmk_mr = Λmkp1_mr
+	end
+
+	Λmks = stack(Λmks, dims=1) # get it to an array
+	@show Λmks
+end
+
+# ╔═╡ 531d2748-acf4-41ec-9db0-8af019b794ef
+begin
+	# Ploting model likelihoods
+	plot(Λmks[:,1], xlabel = "k", ylabel="Model Likelihood", title="MMF Model Likelihoods", label="Fixed Wing")
+	plot!(Λmks[:,2], label="Multirotor")
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -832,7 +949,7 @@ StatsBase = "~0.34.3"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.2"
+julia_version = "1.10.3"
 manifest_format = "2.0"
 project_hash = "55c49d10d94b460226cc1f72e48feeeea81fd6b9"
 
@@ -1074,7 +1191,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.1.0+0"
+version = "1.1.1+0"
 
 [[deps.CompositionsBase]]
 git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
@@ -3040,5 +3157,9 @@ version = "1.4.1+1"
 # ╠═de73f537-f65b-4077-b0f0-05fb06301f2e
 # ╠═26f56815-ddd8-4555-8445-d16ff6b8e6b4
 # ╠═4bcfd687-ac71-497c-8bf5-a1b12e064864
+# ╠═104c29ef-f3cd-4115-88b5-8c6994b03de7
+# ╠═aa44798c-18ea-489c-bc0a-87cdd156a306
+# ╠═4d0df2bd-34a5-4eb3-bcc9-d47079c2f382
+# ╠═531d2748-acf4-41ec-9db0-8af019b794ef
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
