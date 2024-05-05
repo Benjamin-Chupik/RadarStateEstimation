@@ -20,7 +20,7 @@ begin
 	using Plots
 	using DifferentialEquations: ODEProblem, solve, Tsit5
 	using StatsBase
-	using LinearAlgebra: norm, dot
+	using LinearAlgebra: norm, dot, Diagonal
 	using Printf
 	using PlutoUI
 end
@@ -383,23 +383,23 @@ end
 @bind objectModelName Select(["FixedWing", "Multirotor"])
 
 # ╔═╡ de55684e-4015-4b18-afce-b8e61ac8f540
-md"## Kalman Filter"
+md"## Extended Kalman Filter"
 
 # ╔═╡ 332ae310-4340-447b-b938-ff063c6e50a3
 begin
-function linearizedGeneralFlyingEOM(x_vec::Vector{Float64}, t)
+function linearizedGeneralFlyingEOM(xk::Vector{Float64})
     # x_vec: [x, y, α, v, wx, wz]
     # p_vec: Parameters vector: [noise, Cd, rho]
 		# Where noise: [dx Noise, dz Noise, dα Noise, v, wx, wz]
 		# This needs to be one continuous vector tho, not [[],#,#]
 
     # Unpacking
-    x = x_vec[1]
-    y = x_vec[2]
-    α = x_vec[3]
-    v = x_vec[4]
-    wx = x_vec[5]
-	wz = x_vec[6]
+    x = xk[1]
+    z = xk[2]
+    α = xk[3]
+    v = xk[4]
+    wx = xk[5]
+	wz = xk[6]
     
     A = [0 0 -v*sin(α) cos(α) 1 0
          0 0  v*cos(α) sin(α) 0 1
@@ -408,9 +408,45 @@ function linearizedGeneralFlyingEOM(x_vec::Vector{Float64}, t)
          0 0 0 0 0 0]
 	return A
 end;
+	
+function linearizedMeasurements(xk::Vector{Float64})
 
+    xr, zr = radar_p
 
-function EKF_step!(x_list, P_list, yk1, Qk, Rk, params, radar)
+    x = xk[1]
+    z = xk[2]
+    α = xk[3]
+    v = xk[4]
+    e = atan(z-zr, x-xr)
+
+	dedx = -(z-zr)/((x-xr)^2+(z-zr)^2)
+    dedz = (x-xr)/((x-xr)^2+(z-zr)^2)
+
+    drdx = (x-xr)/sqrt((x-xr)^2+(z-zr)^2)
+    drdz = (z-zr)/sqrt((x-xr)^2+(z-zr)^2)
+
+    drddv = cos(α-e)
+    drddα = -v*sin(α-e)
+    drddx = -v*sin(α-e)*-dedx
+    drddz = -v*sin(α-e)*-dedz
+
+    H = zeros(3,length(xk))
+
+    H[1,1] = dedx
+    H[1,2] = dedz
+
+    H[2,1] = drdx
+    H[2,2] = drdz
+
+    H[3,1] = drddx
+    H[3,2] = drddz
+    H[3,3] = drddα
+    H[3,4] = drddv
+
+    return H
+end
+
+function EKF_step!(x_list, P_list, yk1, Qk, Rk)
     """
     Updates the x_list with xk+1 with an EKF prediction
     Inputs:
@@ -431,15 +467,15 @@ function EKF_step!(x_list, P_list, yk1, Qk, Rk, params, radar)
     xk = x_list[end]
     Pk = P_list[end]
     
-    xk1min = RadarStateEstimation.models.fixedWing.simulate(xk, uk, wk, params) # 		nonlinear dynamics prediction
+    xk1min = dynamicsUpdate(xk, [[0.0], [0.0], [0.0], [0.0], [0.0], [0.0]],generalFlyingEOM, params) # nonlinear dynamics prediction
     
-    Atild = linearizedGeneralFlyingEOM(xk, params) #linearized dynamics at timestep
+    Atild = linearizedGeneralFlyingEOM(xk) #linearized dynamics at timestep
     Fk = I + params.dt*Atild 
 
     Pk1min = Fk*Pk*Fk' + Qk # update Pmin
 
-    yk1hat = RadarStateEstimation.models.radar.radarMeasure(xk1min, radar)
-    Hk1 = RadarStateEstimation.models.fixedWing.fixedWingMeasDer(xk1min, radar)
+    yk1hat = radarMeasure(xk1min, radar_p, radar_noise)
+    Hk1 = linearizedMeasurements(xk1min)
 
     ek1 = yk1 .- yk1hat
     
@@ -453,24 +489,19 @@ function EKF_step!(x_list, P_list, yk1, Qk, Rk, params, radar)
     push!(P_list, Pk1plus)
 end
 
-function EKF_bulk(x0, P0, Y, Qk, Rk, params, radar)
+function EKF_bulk(x0::Vector{Float64}, P0::Matrix{Float64}, Y, Qk, Rk)
     """
     Updates the x_list with xk+1 with an EKF prediction
     Inputs:
         x_list: vector x0
         P_list: matrix P0
-        U: Vector of control imputs for all k
         Y: Vector of measurements for all k (k=1 should be empty)
         Qk: EKF dynamics noise at step k
         Rk: EKF measurement noise at step k
-        params: paramter struct
-        radar: radar struct
     Updates:
         x_list with all x
         P_list with all P
     """
-    # @assert length(U) == length(Y)
-    K = length(U)
 
     # Initialize x_list
     x_list = Vector{Vector{Float64}}()
@@ -482,7 +513,7 @@ function EKF_bulk(x0, P0, Y, Qk, Rk, params, radar)
 
     for k in 1:K
         println("k=$(k)")
-        EKF_step!(x_list, P_list, U[k], W[k+1], Y[k+1], Qk, Rk, params, radar)
+        EKF_step!(x_list, P_list, Y[k+1], Qk, Rk)
     end
 
     return (x_list, P_list)
@@ -542,6 +573,19 @@ begin
 	else
 		throw("Option Select error")
 	end
+p_gen0 = [
+		Normal(x0[1], 10.0), # x
+		Normal(x0[2], 10.0), # z
+		Normal(x0[3], deg2rad(10)), # α
+		Normal(x0[4], 10), # v
+		Normal(x0[5], 1), # wx
+		Normal(x0[6], 1) # wz		
+	]
+end
+
+# ╔═╡ 8f6e93dc-25c0-4531-8fa6-a7b76fced366
+begin
+P0 = Diagonal(var.(p_gen0))
 end
 
 # ╔═╡ 5ee73c3b-c93a-48a8-a586-8602059a4c5d
@@ -3140,6 +3184,7 @@ version = "1.4.1+1"
 # ╠═6887f2c2-f99d-490c-9854-287359dedab6
 # ╠═de55684e-4015-4b18-afce-b8e61ac8f540
 # ╠═332ae310-4340-447b-b938-ff063c6e50a3
+# ╠═8f6e93dc-25c0-4531-8fa6-a7b76fced366
 # ╠═b3cf4446-607e-4d6c-b7bb-239bdb6db13a
 # ╠═b3780178-2093-462a-af0a-ea86dbc33d90
 # ╠═5ee73c3b-c93a-48a8-a586-8602059a4c5d
