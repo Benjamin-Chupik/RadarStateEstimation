@@ -131,14 +131,26 @@ end
 dynamicsUpdate([50.0,0,0,25,0, 0], [[0.0],[0.0],[0.0],[2.0],[2.0],[0.0]], generalFlyingEOM, params)
 
 # ╔═╡ 2a8c5fb5-91ae-495b-8e59-9b4b7d68b9ad
-fixedWingNoise = [
-		[0.0], # x_dot
-		[0.0], # z_dot
-		Normal(0.0, deg2rad(3)), # α_dot (From control inputs)
-		Normal(25.0, 1.5), # v_dot (From control inputs)
-		Normal(0.0, 0.5), # wx_dot
-		Normal(0.0, 0.5) # wz_dot
-	]
+begin
+	fixedWingNoise = [
+			[0.0], # x_dot
+			[0.0], # z_dot
+			Normal(0.0, deg2rad(3)), # α_dot (From control inputs)
+			Normal(25.0, 1.5), # v_dot (From control inputs)
+			Normal(0.0, 0.5), # wx_dot
+			Normal(0.0, 0.5) # wz_dot
+		]
+	
+	#Make a no wind one with larger uncertainties to composate for the missing wind
+	fixedWingNoise_noWind = [
+			Normal(0.0, 5), # x_dot
+			Normal(0.0, 5), # z_dot
+			Normal(0.0, deg2rad(1.5)), # α_dot (From control inputs)
+			Normal(25.0, 5), # v_dot (From control inputs)
+			[0.0], # wx_dot
+			[0.0] # wz_dot
+		]
+end
 
 # ╔═╡ b9e77b29-b8a3-42e7-a65c-b2089cab27f1
 function genFixedWingTrajectory(x0::Vector{Float64}, params::Params)
@@ -380,7 +392,7 @@ begin
 end
 
 # ╔═╡ 98269eca-622a-4537-9785-58771a236d57
-@bind objectModelName Select(["FixedWing", "Multirotor"])
+@bind objectModelName Select(["FixedWing", "Multirotor", "FixedWing-NoWind", "Multirotor-NoWind"])
 
 # ╔═╡ de55684e-4015-4b18-afce-b8e61ac8f540
 md"## Extended Kalman Filter"
@@ -540,6 +552,24 @@ begin
 	
 		return xkp1
 	end
+	function particlePropFixedWing_noWind(xk::Vector{Float64}, params::Params)
+		"""
+		This propogates the dynamics of a particle from time k to k+1.
+		Uses noise to randomply move it.
+		Uses dynamics for a fixed wing.
+		Returns the next x
+		"""
+		noise = fixedWingNoise_noWind
+
+		# Remove wind parts
+		noise[5:6] = [[0.0],[0.0]] # Make sure there is no wind noise
+		xk[5:6] = [0.0,0.0] # Make sure there is no wind state
+		
+		# Propogate dynamics using the updator
+		xkp1 = dynamicsUpdate(xk, noise, generalFlyingEOM, params)
+	
+		return xkp1
+	end
 	function particlePropMultiRotor(xk::Vector{Float64}, params::Params)
 		"""
 		This propogates the dynamics of a particle from time k to k+1.
@@ -548,6 +578,24 @@ begin
 		Returns the next x
 		"""
 		noise = multiRotorNoise
+		
+		# Propogate dynamics using the updator
+		xkp1 = dynamicsUpdate(xk, noise, generalFlyingEOM, params)
+	
+		return xkp1
+	end
+	function particlePropMultiRotor_noWind(xk::Vector{Float64}, params::Params)
+		"""
+		This propogates the dynamics of a particle from time k to k+1.
+		Uses noise to randomply move it.
+		Uses dynamics for a fixed wing.
+		Returns the next x
+		"""
+		noise = multiRotorNoise
+
+		# Remove wind parts
+		noise[5:6] = [[0.0],[0.0]]  # Make sure there is no wind noise
+		xk[5:6] = [0.0,0.0] # Make sure there is no wind state
 		
 		# Propogate dynamics using the updator
 		xkp1 = dynamicsUpdate(xk, noise, generalFlyingEOM, params)
@@ -569,7 +617,15 @@ begin
 		pfTestingMeasurements = multirotorTrajectoryMeasurements
 		pfTestingMeasurementsPositions = multirotorTrajectoryMeasurementsPositions
 	elseif objectModelName == "FixedWing-NoWind"
-		elseif objectModelName == "Multirotor-NoWind"
+		pfTestingDynUpdater = particlePropFixedWing_noWind
+		pfTestingTrajectory = fixedWingTrajectory
+		pfTestingMeasurements = fixedWingTrajectoryMeasurements
+		pfTestingMeasurementsPositions = fixedWingTrajectoryMeasurementsPositions
+	elseif objectModelName == "Multirotor-NoWind"
+		pfTestingDynUpdater = particlePropMultiRotor_noWind
+		pfTestingTrajectory = multirotorTrajectory
+		pfTestingMeasurements = multirotorTrajectoryMeasurements
+		pfTestingMeasurementsPositions = multirotorTrajectoryMeasurementsPositions
 	else
 		throw("Option Select error")
 	end
@@ -944,8 +1000,9 @@ begin
 		Λmkp1_mr =  Λmkp1_mr*Λmk_mr
 
 		# Normalize with all models
-		Λmkp1_fw =  Λmkp1_fw/(Λmkp1_fw + Λmkp1_mr)
-		Λmkp1_mr =  Λmkp1_mr/(Λmkp1_fw + Λmkp1_mr)
+		normConst = (Λmkp1_fw + Λmkp1_mr)
+		Λmkp1_fw =  Λmkp1_fw/normConst
+		Λmkp1_mr =  Λmkp1_mr/normConst
 
 		# Save data
 		push!(pxks_fw, pxkp1_fw)
