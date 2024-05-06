@@ -143,10 +143,10 @@ begin
 	
 	#Make a no wind one with larger uncertainties to composate for the missing wind
 	fixedWingNoise_noWind = [
-			Normal(0.0, 5), # x_dot
-			Normal(0.0, 5), # z_dot
-			Normal(0.0, deg2rad(1.5)), # α_dot (From control inputs)
-			Normal(25.0, 5), # v_dot (From control inputs)
+			Normal(0.0, 7), # x_dot
+			Normal(0.0, 7), # z_dot
+			Normal(0.0, deg2rad(3)), # α_dot (From control inputs)
+			Normal(25.0, 1.5), # v_dot (From control inputs)
 			[0.0], # wx_dot
 			[0.0] # wz_dot
 		]
@@ -946,7 +946,7 @@ function pf_step(pxk::Matrix{Float64}, ys::Vector{Float64}, particleProp::Functi
 	end
 
 	# Get the model likelihood for ONLY this step (not multipled by old one or normalized with respect to other models)
-	Λ_m = sum(wkp1)
+	Λ_m = mean(wkp1)
 	if Λ_m== 0.0 # if everything is 0, then it is not the model and the SIR will break
 		return nothing, nothing
 	end
