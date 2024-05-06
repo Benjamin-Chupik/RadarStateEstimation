@@ -87,8 +87,8 @@ function generalFlyingEOM(dx_vec::Vector{Float64}, x_vec::Vector{Float64}, p_vec
 	dx_vec[2] += wz
 	dx_vec[3] += noise[3]
 	dx_vec[4] += noise[4]
-	dx_vec[5] += noise[5]
-	dx_vec[6] += noise[6]
+	dx_vec[5] += 0.0
+	dx_vec[6] += 0.0
 end
 
 # ╔═╡ 2ea40eca-f6f4-4d39-8e7d-38ba33d42c9e
@@ -1050,7 +1050,7 @@ StatsBase = "~0.34.3"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.3"
+julia_version = "1.10.2"
 manifest_format = "2.0"
 project_hash = "55c49d10d94b460226cc1f72e48feeeea81fd6b9"
 
@@ -1292,7 +1292,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.1.1+0"
+version = "1.1.0+0"
 
 [[deps.CompositionsBase]]
 git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
