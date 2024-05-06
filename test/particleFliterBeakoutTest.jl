@@ -23,6 +23,8 @@ begin
 	using LinearAlgebra: norm, dot, Diagonal
 	using Printf
 	using PlutoUI
+
+	savePrefix = "../docs/figures/wind_" # a saving prefix for plot names
 end
 
 # ╔═╡ 52b17302-4cd2-47fc-948b-2ffaeee8874c
@@ -143,8 +145,8 @@ begin
 	
 	#Make a no wind one with larger uncertainties to composate for the missing wind
 	fixedWingNoise_noWind = [
-			Normal(0.0, 7), # x_dot
-			Normal(0.0, 7), # z_dot
+			Normal(0.0, 2.63), # x_dot
+			Normal(0.0, 2.63), # z_dot
 			Normal(0.0, deg2rad(3)), # α_dot (From control inputs)
 			Normal(25.0, 1.5), # v_dot (From control inputs)
 			[0.0], # wx_dot
@@ -182,7 +184,7 @@ multiRotorNoise = [
             Normal(deg2rad(-90), deg2rad(1)),
             Normal(0, deg2rad(3)),
             Normal(deg2rad(90), deg2rad(1))], [0.01, 0.98, 0.01]), # α_dot (From control inputs)
-		Normal(10.0, 5.0), # v_dot (From control inputs)
+		Normal(25.0, 1.5), # v_dot (From control inputs)
 		Normal(0.0, 0.5), # wx_dot
 		Normal(0.0, 0.5) # wz_dot
 	]
@@ -217,6 +219,9 @@ begin
 	multirotorTrajectory = genMultirotorTrajectory(x0, params);
 	plot_traject = plot(fixedWingTrajectory[:,1], fixedWingTrajectory[:,2], xlabel= "x [m]", ylabel="z [m]", title = "Example Trajectories", legend = true, label = "Fixed Wing")
 	plot!(plot_traject, multirotorTrajectory[:,1], multirotorTrajectory[:,2], label="Multirotor")
+	savefig(plot_traject, savePrefix*"Model_Trajectories.svg");
+	plot_traject
+
 end
 
 # ╔═╡ dcb709a9-200b-4b4a-9665-cd613659bd19
@@ -231,7 +236,9 @@ begin
 		push!(dynamicsExPlots, pTemp)
 	end
 	
-	plot(dynamicsExPlots[1], dynamicsExPlots[2], dynamicsExPlots[3], dynamicsExPlots[4], dynamicsExPlots[5], dynamicsExPlots[6], layout=(6,1), size=(600,1200), legend = true, left_margin=5Plots.mm)
+	plot_traject_allStates = plot(dynamicsExPlots[1], dynamicsExPlots[2], dynamicsExPlots[3], dynamicsExPlots[4], dynamicsExPlots[5], dynamicsExPlots[6], layout=(6,1), size=(600,1200), legend = true, left_margin=5Plots.mm)
+	savefig(plot_traject_allStates, savePrefix*"Model_Trajectories_states.svg");
+	plot_traject_allStates
 end
 
 # ╔═╡ 7e1ded81-2900-42dd-9712-cbcb56cfc581
@@ -345,12 +352,13 @@ begin
 	fixedWingTrajectoryMeasurements = radarMeasure(fixedWingTrajectory, radar_p, radar_noise)
 	multirotorTrajectoryMeasurements = radarMeasure(multirotorTrajectory, radar_p, radar_noise)
 
-	plot(
-		plot(fixedWingTrajectoryMeasurements[:,1], label="elevation [rad]", xlabel="x [m]", ylabel="x [m]"),
-		plot(fixedWingTrajectoryMeasurements[:,2], label="elevation [rad]", xlabel="x [m]", ylabel="x [m]"),
-		plot(fixedWingTrajectoryMeasurements[:,3], label="elevation [rad]", xlabel="x [m]", ylabel="x [m]"),
-		title = "Fixed Wing Measurements"
+	plot_measurementTest = plot(
+		plot(fixedWingTrajectoryMeasurements[:,1], label="elevation [rad]", xlabel="k", ylabel="e", title = "Fixed Wing Measurements"),
+		plot(fixedWingTrajectoryMeasurements[:,2], label="distance [m]", xlabel="k", ylabel="r", title = ""),
+		plot(fixedWingTrajectoryMeasurements[:,3], label="relative velocity", xlabel="k", ylabel="r_dot [m/s]", title = ""), layout=(3,1)
 	)
+	savefig(plot_measurementTest, savePrefix*"Model_measurementTest_states.svg");
+	plot_measurementTest
 	
 end
 
@@ -368,18 +376,21 @@ begin
 		plot_measure = deepcopy(plot_traject)
 		scatter!(plot_measure,fixedWingTrajectoryMeasurementsPositions[:,1], fixedWingTrajectoryMeasurementsPositions[:,2], label = "Fixed Wing Measurement Positions", color = :blue)
 		scatter!(plot_measure,multirotorTrajectoryMeasurementsPositions[:,1], multirotorTrajectoryMeasurementsPositions[:,2], label = "Multirotor Measurement Positions", color = :orange)
+		savefig(plot_measure, savePrefix*"Model_measurementTest_position.svg");
 		plot_measure
 end
 
 # ╔═╡ 8fcd1f1c-f077-4c5f-ae51-12b07c02d808
 begin
 	# Look at just the positions
-		plot_measure_positions_pure = plot(
+		plot_measure_xzState = plot_measure_positions_pure = plot(
 			plot(params.ks, fixedWingTrajectoryMeasurementsPositions[:,1] - fixedWingTrajectory[:,1], xlabel = "k", ylabel = "x [m]"),
 			plot(params.ks, fixedWingTrajectoryMeasurementsPositions[:,2] - fixedWingTrajectory[:,2], xlabel = "k", ylabel = "z [m]"),
 			layout = (2,1),
 			title = "Fixed Wing Measured Position Noise due to Measurements"
 		)
+		savefig(plot_measure_xzState, savePrefix*"Model_measurementTest_xzvk_position.svg");
+	plot_measure_xzState
 end
 
 # ╔═╡ 1cd51e4a-f27f-4187-b5ce-1bdcae339703
@@ -906,6 +917,7 @@ end
 begin
 	pdepleetPrecent = 100*nPdeplete./nP
 	plot(pdepleetPrecent, title="Precent particles depeted", xlabel="k")
+	
 
 end
 
@@ -1023,8 +1035,10 @@ end
 # ╔═╡ 531d2748-acf4-41ec-9db0-8af019b794ef
 begin
 	# Ploting model likelihoods
-	plot(Λmks[:,1], xlabel = "k", ylabel="Model Likelihood", title="MMF Model Likelihoods", label="Fixed Wing")
+	MMFPlot = plot(Λmks[:,1], xlabel = "k", ylabel="Model Likelihood", title="MMF Model Likelihoods", label="Fixed Wing")
 	plot!(Λmks[:,2], label="Multirotor")
+	savefig(MMFPlot, "../docs/figures/MMFPlotLikelihoodOverK.svg");
+	MMFPlot
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
