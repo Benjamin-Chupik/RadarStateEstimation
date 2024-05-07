@@ -301,7 +301,7 @@ begin
 	radar_noise = [ # all of these need to be distribution so pdf works for measure likelihood
 		Normal(0.0, deg2rad(2)), # el
 		Normal(2, 1) , # r
-		Normal(0, 0.2) # rd
+		Normal(0, 1) # rd
 	]
 	# Generate Measurements
 	fixedWingTrajectoryMeasurements = radarMeasure(fixedWingTrajectory, radar_p, radar_noise)
@@ -354,17 +354,15 @@ md"""# Estimators
 # ╔═╡ 6887f2c2-f99d-490c-9854-287359dedab6
 begin
 	if objectModelName == "FixedWing"
-		pfTestingDynUpdater = dynamicsUpdate
-		pfTestingTrajectory = fixedWingTrajectory
-		pfTestingMeasurements = fixedWingTrajectoryMeasurements
-		pfTestingMeasurementsPositions = fixedWingTrajectoryMeasurementsPositions
+		DynUpdater = dynamicsUpdate
+		Trajectory = fixedWingTrajectory
+		Measurements = fixedWingTrajectoryMeasurements
+		MeasurementsPositions = fixedWingTrajectoryMeasurementsPositions
 	elseif objectModelName == "Multirotor"
-		pfTestingDynUpdater = dynamicsUpdate
-		pfTestingTrajectory = multirotorTrajectory
-		pfTestingMeasurements = multirotorTrajectoryMeasurements
-		pfTestingMeasurementsPositions = multirotorTrajectoryMeasurementsPositions
-	elseif objectModelName == "FixedWing-NoWind"
-		elseif objectModelName == "Multirotor-NoWind"
+		DynUpdater = dynamicsUpdate
+		Trajectory = multirotorTrajectory
+		Measurements = multirotorTrajectoryMeasurements
+		MeasurementsPositions = multirotorTrajectoryMeasurementsPositions
 	else
 		throw("Option Select error")
 	end
@@ -521,16 +519,21 @@ begin
 	x0EKF = rand.(p_gen0)
 	
 	Rk = diagm(0 => var.(radar_noise))
-	Qk = diagm(0 => [0.1, 0.1, deg2rad(0.001), 0.1])
-		
-	x_EKF, P_EKF = EKF_bulk(x0EKF, P0, fixedWingTrajectoryMeasurements, Qk, Rk)
-	x_noisy = y2p(fixedWingTrajectoryMeasurements, radar_p)
+
+	if objectModelName == "FixedWing"
+		Qk = diagm(0 => [0.001, 0.001, deg2rad(0.1), 25])
+	elseif objectModelName == "Multirotor"
+		Qk = diagm(0 => [0.001, 0.001, deg2rad(5), 25])
+	end
+	
+	x_EKF, P_EKF = EKF_bulk(x0EKF, P0, Measurements, Qk, Rk)
+	# x_noisy = MeasurementsPositions#y2p(Measurements, radar_p)
 
 	sigma_EKF = stack(diag.(P_EKF), dims=1)
 	EKFstatePlots = []
 	for ix = 1:4
 		pTemp = plot(x_EKF[:,ix], title = "EKF state $(stateList[ix])",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
-		plot!(fixedWingTrajectory[:, ix], color=:red, label = "true")
+		plot!(Trajectory[:, ix], color=:red, label = "true")
 		push!(EKFstatePlots, pTemp)
 	end
 	
@@ -549,6 +552,18 @@ begin
 	end
 	
 	plot(dynamicsExPlots[1], dynamicsExPlots[2], dynamicsExPlots[3], dynamicsExPlots[4], layout=(4,1), size=(600,800), legend = true, left_margin=5Plots.mm)
+end
+
+# ╔═╡ dc656e23-385d-4422-a618-dbcc8e776c54
+begin
+	# Check out errors
+		EKFstateErrorPlots = []
+		for ix = 1:4
+			pTemp = plot(abs.(Trajectory[:, ix] - x_EKF[:,ix]), title = "EKF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
+			push!(EKFstateErrorPlots, pTemp)
+		end
+		
+		plot(EKFstateErrorPlots[1], EKFstateErrorPlots[2], EKFstateErrorPlots[3], EKFstateErrorPlots[4], layout=(4,1), size=(600,800), legend = false, left_margin=5Plots.mm)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -2765,5 +2780,6 @@ version = "1.4.1+1"
 # ╠═de55684e-4015-4b18-afce-b8e61ac8f540
 # ╠═332ae310-4340-447b-b938-ff063c6e50a3
 # ╠═8f6e93dc-25c0-4531-8fa6-a7b76fced366
+# ╠═dc656e23-385d-4422-a618-dbcc8e776c54
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

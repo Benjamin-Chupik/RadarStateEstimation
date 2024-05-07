@@ -660,17 +660,22 @@ begin
 	x0EKF = rand.(p_gen0)
 	
 	Rk = diagm(0 => var.(radar_noise))
-	Qk = diagm(0 => [0.001, 0.001, deg2rad(2), 30, 0.5, 0.5])
+	if objectModelName == "FixedWing"
+		Qk = diagm(0 => [0.001, 0.001, deg2rad(2), 30, 0.5, 0.5])
+	elseif objectModelName == "Multirotor"
+		Qk = diagm(0 => [0.001, 0.001, deg2rad(5), 30, 0.5, 0.5])
+	end
+	
 		
-	x_EKF, P_EKF = EKF_bulk(x0EKF, P0, fixedWingTrajectoryMeasurements, Qk, Rk)
-	x_noisy = y2p(fixedWingTrajectoryMeasurements, radar_p)
+	x_EKF, P_EKF = EKF_bulk(x0EKF, P0, pfTestingMeasurements, Qk, Rk)
+	# x_noisy = y2p(fixedWingTrajectoryMeasurements, radar_p)
 
 	# display(size(x_EKF))
 	sigma_EKF = stack(diag.(P_EKF), dims=1)
 	EKFstatePlots = []
 	for ix = 1:6
 		pTemp = plot(x_EKF[:,ix], title = "EKF state $(stateList[ix])",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
-		scatter!(fixedWingTrajectory[:, ix], color=:red, label = "true")
+		scatter!(pfTestingTrajectory[:, ix], color=:red, label = "true")
 		push!(EKFstatePlots, pTemp)
 	end
 	
@@ -683,7 +688,7 @@ begin
 	# Check out errors
 		EKFstateErrorPlots = []
 		for ix = 1:6
-			pTemp = plot(abs.(fixedWingTrajectory[:, ix] - x_EKF[:,ix]), title = "EKF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
+			pTemp = plot(abs.(pfTestingTrajectory[:, ix] - x_EKF[:,ix]), title = "EKF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
 			push!(EKFstateErrorPlots, pTemp)
 		end
 		
