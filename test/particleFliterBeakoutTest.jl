@@ -20,7 +20,7 @@ begin
 	using Plots
 	using DifferentialEquations: ODEProblem, solve, Tsit5
 	using StatsBase
-	using LinearAlgebra: norm, dot, Diagonal, diagm, I
+	using LinearAlgebra: norm, dot, diag, diagm, I
 	using Printf
 	using PlutoUI
 
@@ -344,9 +344,9 @@ begin
 	# Measurement test
 	radar_p = [200.0,0.0]
 	radar_noise = [ # all of these need to be distribution so pdf works for measure likelihood
-		Normal(0.0, deg2rad(0.5)), # el
-		Chisq(1), # r
-		Normal(0, 0.5) # rd
+		Normal(0.0, deg2rad(2)), # el
+		Chisq(4), # r
+		Normal(0, 1) # rd
 	]
 	# Generate Measurements
 	fixedWingTrajectoryMeasurements = radarMeasure(fixedWingTrajectory, radar_p, radar_noise)
@@ -534,18 +534,15 @@ function EKF_bulk(x0::Vector{Float64}, P0::Matrix{Float64}, Y, Qk, Rk)
     P_list = Vector{Matrix{Float64}}()
     push!(P_list, P0)
 
-    for k in params.ks
+    for k in params.ks[1:end-1]
         println("k=$(k)")
-        EKF_step!(x_list, P_list, Y[k+1], Qk, Rk)
+        EKF_step!(x_list, P_list, Y[k+1, :], Qk, Rk)
     end
 
 	x_list = stack(x_list, dims=1)
     return (x_list, P_list)
 end
 end
-
-# ╔═╡ 0f77b9e1-705b-464b-9233-091b860ab967
-@show stateList
 
 # ╔═╡ b3cf4446-607e-4d6c-b7bb-239bdb6db13a
 md"## Bootstrap Particle Filter"
@@ -652,6 +649,45 @@ p_gen0 = [
 		Normal(x0[5], 1), # wx
 		Normal(x0[6], 1) # wz		
 	]
+end
+
+# ╔═╡ 8f6e93dc-25c0-4531-8fa6-a7b76fced366
+begin
+	# plot results states
+	
+	#make the list a matrix for easy plotting
+	P0 = diagm(0 => var.(p_gen0))
+	x0EKF = rand.(p_gen0)
+	
+	Rk = diagm(0 => var.(radar_noise))
+	Qk = diagm(0 => [0.001, 0.001, deg2rad(2), 30, 0.5, 0.5])
+		
+	x_EKF, P_EKF = EKF_bulk(x0EKF, P0, fixedWingTrajectoryMeasurements, Qk, Rk)
+	x_noisy = y2p(fixedWingTrajectoryMeasurements, radar_p)
+
+	# display(size(x_EKF))
+	sigma_EKF = stack(diag.(P_EKF), dims=1)
+	EKFstatePlots = []
+	for ix = 1:6
+		pTemp = plot(x_EKF[:,ix], title = "EKF state $(stateList[ix])",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
+		scatter!(fixedWingTrajectory[:, ix], color=:red, label = "true")
+		push!(EKFstatePlots, pTemp)
+	end
+	
+	plot(EKFstatePlots[1], EKFstatePlots[2], EKFstatePlots[3], EKFstatePlots[4], EKFstatePlots[5], EKFstatePlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
+end
+
+
+# ╔═╡ 0f77b9e1-705b-464b-9233-091b860ab967
+begin
+	# Check out errors
+		EKFstateErrorPlots = []
+		for ix = 1:6
+			pTemp = plot(abs.(fixedWingTrajectory[:, ix] - x_EKF[:,ix]), title = "EKF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
+			push!(EKFstateErrorPlots, pTemp)
+		end
+		
+		plot(EKFstateErrorPlots[1], EKFstateErrorPlots[2], EKFstateErrorPlots[3], EKFstateErrorPlots[4], EKFstateErrorPlots[5], EKFstateErrorPlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
 end
 
 # ╔═╡ 5ee73c3b-c93a-48a8-a586-8602059a4c5d
@@ -891,32 +927,6 @@ begin
 	
 	plot(pfstatePlots[1], pfstatePlots[2], pfstatePlots[3], pfstatePlots[4], pfstatePlots[5], pfstatePlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
 end
-
-# ╔═╡ 8f6e93dc-25c0-4531-8fa6-a7b76fced366
-begin
-	# plot results states
-	
-	#make the list a matrix for easy plotting
-	P0 = diagm(0 => var.(p_gen0))
-	x0EKF = rand.(p_gen0)
-	
-	Rk = diagm(0 => var.(radar_noise))
-	Qk = diagm(0 => [0.1, 0.1, 0.01, 5, 0.5, 0.5])
-		
-	x_EKF, P_EKF = EKF_bulk(x0EKF, P0, fixedWingTrajectoryMeasurements, Qk, Rk)
-	x_noisy = y2p(fixedWingTrajectoryMeasurements, radar_p)
-
-	display(size(x_EKF))
-	EKFstatePlots = []
-	for ix = 1:6
-		pTemp = plot(x_EKF[:,ix], title = "PF state $(stateList[ix]) MMSE",  xlabel = "k")#, ribbon=pointValuesStd[:,ix])
-		scatter!(pfTestingTrajectory[1:nPlotPOints, ix], color=:red, label = "true")
-		push!(EKFstatePlots, pTemp)
-	end
-	
-	plot(EKFstatePlots[1], EKFstatePlots[2], EKFstatePlots[3], EKFstatePlots[4], EKFstatePlots[5], EKFstatePlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
-end
-
 
 # ╔═╡ 26f56815-ddd8-4555-8445-d16ff6b8e6b4
 begin
@@ -3291,5 +3301,9 @@ version = "1.4.1+1"
 # ╠═de73f537-f65b-4077-b0f0-05fb06301f2e
 # ╠═26f56815-ddd8-4555-8445-d16ff6b8e6b4
 # ╠═4bcfd687-ac71-497c-8bf5-a1b12e064864
+# ╠═104c29ef-f3cd-4115-88b5-8c6994b03de7
+# ╠═aa44798c-18ea-489c-bc0a-87cdd156a306
+# ╠═531d2748-acf4-41ec-9db0-8af019b794ef
+# ╠═4d0df2bd-34a5-4eb3-bcc9-d47079c2f382
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
