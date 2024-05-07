@@ -184,7 +184,7 @@ multiRotorNoise = [
             Normal(deg2rad(-90), deg2rad(1)),
             Normal(0, deg2rad(3)),
             Normal(deg2rad(90), deg2rad(1))], [0.01, 0.98, 0.01]), # α_dot (From control inputs)
-		Normal(25.0, 5.0), # v_dot (From control inputs)
+		Normal(20.0, 5.0), # v_dot (From control inputs)
 		Normal(0.0, 0.5), # wx_dot
 		Normal(0.0, 0.5) # wz_dot
 	]
@@ -863,6 +863,9 @@ function pf(pxk::Matrix{Float64}, ys::Matrix{Float64}, particleProp::Function, m
 				# Measurement Likelihood
 				wkp1[ip] = measureLike(ys[kp1,:], pxkp1[ip,:]) # at next k for y
 			end
+
+			# Count particle depleation
+			push!(nPdeplete, count(x -> x < .0000001, wkp1))
 			
 			#Normalize weights
 			wkp1 .= wkp1./sum(wkp1)
@@ -876,7 +879,7 @@ function pf(pxk::Matrix{Float64}, ys::Matrix{Float64}, particleProp::Function, m
 	
 			# Add to tracker
 			push!(pks, pxkp1)
-			push!(nPdeplete, count(x -> x < .0000001, wkp1))
+			
 			pointValk, stdk = MMSE(pxkp1)
 			push!(pointValues, pointValk)
 			push!(pointValuesStd, stdk)
@@ -956,6 +959,7 @@ end
 # ╔═╡ 4bcfd687-ac71-497c-8bf5-a1b12e064864
 begin
 	pdepleetPrecent = 100*nPdeplete./nP
+	@show maximum(pdepleetPrecent)
 	plot(pdepleetPrecent, title="Precent particles depeted", xlabel="k")
 	
 
@@ -1078,6 +1082,7 @@ begin
 	MMFPlot = plot(Λmks[:,1], xlabel = "k", ylabel="Model Likelihood", title="MMF Model Likelihoods", label="Fixed Wing")
 	plot!(Λmks[:,2], label="Multirotor")
 	savefig(MMFPlot, "../docs/figures/MMFPlotLikelihoodOverK.svg");
+	
 	MMFPlot
 end
 

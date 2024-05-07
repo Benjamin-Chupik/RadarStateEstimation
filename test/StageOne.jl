@@ -342,6 +342,11 @@ begin
 			layout = (2,1),
 			title = "Fixed Wing Measured Position Noise due to Measurements"
 		)
+	plot_measurementTest = plot(
+		plot(fixedWingTrajectoryMeasurements[:,1], label="elevation [rad]", xlabel="k", ylabel="e", title = "Fixed Wing Measurements"),
+		plot(fixedWingTrajectoryMeasurements[:,2], label="distance [m]", xlabel="k", ylabel="r", title = ""),
+		plot(fixedWingTrajectoryMeasurements[:,3], label="relative velocity", xlabel="k", ylabel="r_dot [m/s]", title = ""), layout=(3,1)
+	)
 end
 
 # ╔═╡ 1cd51e4a-f27f-4187-b5ce-1bdcae339703
