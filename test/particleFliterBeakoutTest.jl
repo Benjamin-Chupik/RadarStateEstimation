@@ -544,6 +544,18 @@ function EKF_bulk(x0::Vector{Float64}, P0::Matrix{Float64}, Y, Qk, Rk)
 end
 end
 
+# ╔═╡ 0f77b9e1-705b-464b-9233-091b860ab967
+# begin
+# 	# Check out errors
+# 		EKFstateErrorPlots = []
+# 		for ix = 1:6
+# 			pTemp = plot(abs.(pfTestingTrajectory[:, ix] - x_EKF[:,ix]), title = "EKF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
+# 			push!(EKFstateErrorPlots, pTemp)
+# 		end
+		
+# 		plot(EKFstateErrorPlots[1], EKFstateErrorPlots[2], EKFstateErrorPlots[3], EKFstateErrorPlots[4], EKFstateErrorPlots[5], EKFstateErrorPlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
+# end
+
 # ╔═╡ b3cf4446-607e-4d6c-b7bb-239bdb6db13a
 md"## Bootstrap Particle Filter"
 
@@ -663,7 +675,7 @@ begin
 	if objectModelName == "FixedWing"
 		Qk = diagm(0 => [0.001, 0.001, deg2rad(2), 30, 0.5, 0.5])
 	elseif objectModelName == "Multirotor"
-		Qk = diagm(0 => [0.001, 0.001, deg2rad(5), 30, 0.5, 0.5])
+		Qk = diagm(0 => [0.001, 0.001, deg2rad(10), 20, 0.5, 0.5])
 	end
 	
 		
@@ -673,27 +685,19 @@ begin
 	# display(size(x_EKF))
 	sigma_EKF = stack(diag.(P_EKF), dims=1)
 	EKFstatePlots = []
+	EKFstateErrorPlots = []
 	for ix = 1:6
-		pTemp = plot(x_EKF[:,ix], title = "EKF state $(stateList[ix])",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
-		scatter!(pfTestingTrajectory[:, ix], color=:red, label = "true")
+		pTemp = plot(x_EKF[:,ix], title = "EKF state $(stateList[ix])",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]), label="EKF")
+		plot!(pTemp, pfTestingTrajectory[:, ix], color=:red, label = "true")
 		push!(EKFstatePlots, pTemp)
+		
+		pTempEKF = plot(abs.(pfTestingTrajectory[:, ix] - x_EKF[:,ix]), title = "EKF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]), label="error")
+		push!(EKFstateErrorPlots, pTempEKF)
 	end
 	
-	plot(EKFstatePlots[1], EKFstatePlots[2], EKFstatePlots[3], EKFstatePlots[4], EKFstatePlots[5], EKFstatePlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
+	plot(EKFstatePlots[1], EKFstateErrorPlots[1], EKFstatePlots[2], EKFstateErrorPlots[2], EKFstatePlots[3], EKFstateErrorPlots[3], EKFstatePlots[4], EKFstateErrorPlots[4], EKFstatePlots[5], EKFstateErrorPlots[5], EKFstatePlots[6], EKFstateErrorPlots[6], layout=(6,2), size=(1200,1200), left_margin=5Plots.mm)
 end
 
-
-# ╔═╡ 0f77b9e1-705b-464b-9233-091b860ab967
-begin
-	# Check out errors
-		EKFstateErrorPlots = []
-		for ix = 1:6
-			pTemp = plot(abs.(pfTestingTrajectory[:, ix] - x_EKF[:,ix]), title = "EKF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
-			push!(EKFstateErrorPlots, pTemp)
-		end
-		
-		plot(EKFstateErrorPlots[1], EKFstateErrorPlots[2], EKFstateErrorPlots[3], EKFstateErrorPlots[4], EKFstateErrorPlots[5], EKFstateErrorPlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
-end
 
 # ╔═╡ 5ee73c3b-c93a-48a8-a586-8602059a4c5d
 @show id_test
@@ -922,28 +926,31 @@ begin
 	#stateList = ["x", "z", "α", "V", "w"] #Definded before
 	
 	pfstatePlots = []
+	pfstateErrorPlots = []
 	for ix = 1:6
-		#pTemp = scatter(pksMat_noResamp[:,:,ix], title = "PF state $(stateList[ix])", xlabel = "k", color=:orange, label = "PF before resampling", markershape = :cross)
-		#scatter!(pksMat[:,:,ix], title = "PF state $(stateList[ix])", xlabel = "k", color=:blue, label = "PF", markershape = :xcross)
-		pTemp = plot(pointValues[:,ix], title = "PF state $(stateList[ix]) MMSE",  xlabel = "k", ribbon=pointValuesStd[:,ix])
-		scatter!(pfTestingTrajectory[1:nPlotPOints, ix], color=:red, label = "true")
+		
+		pTemp = plot(pointValues[:,ix], title = "PF state $(stateList[ix]) MMSE",  xlabel = "k", ribbon=pointValuesStd[:,ix], label="PF MMSE")
+		plot!(pTemp, pfTestingTrajectory[1:nPlotPOints, ix], color=:red, label = "true")
 		push!(pfstatePlots, pTemp)
+
+		pTempERR = plot(abs.(pfTestingTrajectory[1:nPlotPOints, ix] - pointValues[:,ix]), title = "PF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=pointValuesStd[:,ix], label="error")
+		push!(pfstateErrorPlots, pTempERR)
 	end
 	
-	plot(pfstatePlots[1], pfstatePlots[2], pfstatePlots[3], pfstatePlots[4], pfstatePlots[5], pfstatePlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
+	plot(pfstatePlots[1], pfstateErrorPlots[1], pfstatePlots[2],pfstateErrorPlots[2],  pfstatePlots[3], pfstateErrorPlots[3], pfstatePlots[4], pfstateErrorPlots[4], pfstatePlots[5], pfstateErrorPlots[5], pfstatePlots[6], pfstateErrorPlots[6], layout=(6,2), size=(1200,1200), left_margin=5Plots.mm) 
 end
 
 # ╔═╡ 26f56815-ddd8-4555-8445-d16ff6b8e6b4
-begin
-	# Check out errors
-		pfstateErrorPlots = []
-		for ix = 1:6
-			pTemp = plot(abs.(pfTestingTrajectory[1:nPlotPOints, ix] - pointValues[:,ix]), title = "PF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=pointValuesStd[:,ix])
-			push!(pfstateErrorPlots, pTemp)
-		end
+# begin
+# 	# Check out errors
+# 		pfstateErrorPlots = []
+# 		for ix = 1:6
+# 			pTemp = plot(abs.(pfTestingTrajectory[1:nPlotPOints, ix] - pointValues[:,ix]), title = "PF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=pointValuesStd[:,ix])
+# 			push!(pfstateErrorPlots, pTemp)
+# 		end
 		
-		plot(pfstateErrorPlots[1], pfstateErrorPlots[2], pfstateErrorPlots[3], pfstateErrorPlots[4], pfstateErrorPlots[5], pfstateErrorPlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
-end
+# 		plot(pfstateErrorPlots[1], pfstateErrorPlots[2], pfstateErrorPlots[3], pfstateErrorPlots[4], pfstateErrorPlots[5], pfstateErrorPlots[6], layout=(6,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
+# end
 
 # ╔═╡ 4bcfd687-ac71-497c-8bf5-a1b12e064864
 begin

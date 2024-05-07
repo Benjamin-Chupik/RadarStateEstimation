@@ -414,10 +414,11 @@ function linearizedMeasurements(xk::Vector{Float64})
     drdx = (x-xr)/sqrt((x-xr)^2+(z-zr)^2)
     drdz = (z-zr)/sqrt((x-xr)^2+(z-zr)^2)
 
+	drddx = v*sin(α-e)*dedx
+    drddz = v*sin(α-e)*dedz
+	drddα = -v*sin(α-e)
     drddv = cos(α-e)
-    drddα = -v*sin(α-e)
-    drddx = -v*sin(α-e)*-dedx
-    drddz = -v*sin(α-e)*-dedz
+    
 
     H = zeros(3,length(xk))
 
@@ -462,7 +463,7 @@ function EKF_step!(x_list, P_list, yk1, Qk, Rk)
 
     Pk1min = Fk*Pk*Fk' + Qk # update Pmin
 
-    yk1hat = radarMeasure(xk1min, radar_p, radar_noise)
+    yk1hat = radarMeasure(xk1min, radar_p, [[0.0], [0.0], [0.0]])
     Hk1 = linearizedMeasurements(xk1min)
 
     ek1 = yk1 .- yk1hat
@@ -519,25 +520,29 @@ begin
 	x0EKF = rand.(p_gen0)
 	
 	Rk = diagm(0 => var.(radar_noise))
+	Rk[2,2] = 5*Rk[2,2]
 
 	if objectModelName == "FixedWing"
-		Qk = diagm(0 => [0.001, 0.001, deg2rad(0.1), 25])
+		Qk = diagm(0 => [0.1, 0.1, deg2rad(0.1), 30])
 	elseif objectModelName == "Multirotor"
-		Qk = diagm(0 => [0.001, 0.001, deg2rad(5), 25])
+		Qk = diagm(0 => [0.001, 0.001, deg2rad(5), 30])
 	end
 	
 	x_EKF, P_EKF = EKF_bulk(x0EKF, P0, Measurements, Qk, Rk)
-	# x_noisy = MeasurementsPositions#y2p(Measurements, radar_p)
 
 	sigma_EKF = stack(diag.(P_EKF), dims=1)
 	EKFstatePlots = []
+	EKFstateErrorPlots = []
 	for ix = 1:4
 		pTemp = plot(x_EKF[:,ix], title = "EKF state $(stateList[ix])",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
-		plot!(Trajectory[:, ix], color=:red, label = "true")
+		plot!(pTemp, Trajectory[:, ix], color=:red, label = "true")
 		push!(EKFstatePlots, pTemp)
+
+		pTempErr = plot(abs.(Trajectory[:, ix] - x_EKF[:,ix]), title = "EKF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
+		push!(EKFstateErrorPlots, pTempErr)
 	end
 	
-	plot(EKFstatePlots[1], EKFstatePlots[2], EKFstatePlots[3], EKFstatePlots[4], layout=(4,1), size=(600,1200), legend = false, left_margin=5Plots.mm)
+	plot(EKFstatePlots[1], EKFstateErrorPlots[1], EKFstatePlots[2], EKFstateErrorPlots[2], EKFstatePlots[3], EKFstateErrorPlots[3], EKFstatePlots[4] ,  EKFstateErrorPlots[4], layout=(4,2), size=(1200,800), left_margin=5Plots.mm)
 end
 
 
@@ -552,18 +557,6 @@ begin
 	end
 	
 	plot(dynamicsExPlots[1], dynamicsExPlots[2], dynamicsExPlots[3], dynamicsExPlots[4], layout=(4,1), size=(600,800), legend = true, left_margin=5Plots.mm)
-end
-
-# ╔═╡ dc656e23-385d-4422-a618-dbcc8e776c54
-begin
-	# Check out errors
-		EKFstateErrorPlots = []
-		for ix = 1:4
-			pTemp = plot(abs.(Trajectory[:, ix] - x_EKF[:,ix]), title = "EKF state $(stateList[ix]) Abolute Error",  xlabel = "k", ribbon=sqrt.(sigma_EKF[:,ix]))
-			push!(EKFstateErrorPlots, pTemp)
-		end
-		
-		plot(EKFstateErrorPlots[1], EKFstateErrorPlots[2], EKFstateErrorPlots[3], EKFstateErrorPlots[4], layout=(4,1), size=(600,800), legend = false, left_margin=5Plots.mm)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -2780,6 +2773,5 @@ version = "1.4.1+1"
 # ╠═de55684e-4015-4b18-afce-b8e61ac8f540
 # ╠═332ae310-4340-447b-b938-ff063c6e50a3
 # ╠═8f6e93dc-25c0-4531-8fa6-a7b76fced366
-# ╠═dc656e23-385d-4422-a618-dbcc8e776c54
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
