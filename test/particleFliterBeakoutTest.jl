@@ -138,7 +138,7 @@ begin
 			[0.0], # x_dot
 			[0.0], # z_dot
 			Normal(0.0, deg2rad(3)), # α_dot (From control inputs)
-			Normal(25.0, 1.5), # v_dot (From control inputs)
+			Normal(25.0, 5), # v_dot (From control inputs)
 			Normal(0.0, 0.5), # wx_dot
 			Normal(0.0, 0.5) # wz_dot
 		]

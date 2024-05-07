@@ -128,7 +128,7 @@ fixedWingNoise = [
 		[0.0], # x_dot
 		[0.0], # z_dot
 		Normal(0.0, deg2rad(3)), # α_dot (From control inputs)
-		Normal(25.0, 1.5), # v_dot (From control inputs)
+		Normal(25.0, 5), # v_dot (From control inputs)
 	]
 
 # ╔═╡ b9e77b29-b8a3-42e7-a65c-b2089cab27f1
@@ -300,7 +300,7 @@ begin
 	radar_p = [200.0,0.0]
 	radar_noise = [ # all of these need to be distribution so pdf works for measure likelihood
 		Normal(0.0, deg2rad(2)), # el
-		Normal(2, 1) , # r
+		Normal(2, 3) , # r
 		Normal(0, 1) # rd
 	]
 	# Generate Measurements
